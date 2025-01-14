@@ -3,23 +3,62 @@ import { Clock, Check, Play, Pause, Plus, X, Settings } from 'lucide-react';
 
 export const TaskManager = () => {
   const [time, setTime] = useState(new Date());
-  const [tasks, setTasks] = useState([]);
+  const [tasks, setTasks] = useState(() => {
+    const savedTasks = localStorage.getItem('tasks');
+    return savedTasks ? JSON.parse(savedTasks) : [];
+  });
   const [newTask, setNewTask] = useState('');
-  const [completedTasks, setCompletedTasks] = useState([]);
+  const [completedTasks, setCompletedTasks] = useState(() => {
+    const savedCompletedTasks = localStorage.getItem('completedTasks');
+    return savedCompletedTasks ? JSON.parse(savedCompletedTasks) : [];
+  });
   const [activeTaskId, setActiveTaskId] = useState(null);
   const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
   const [breakTime, setBreakTime] = useState(5 * 60);
   const [customPomodoroTime, setCustomPomodoroTime] = useState(25);
   const [customBreakTime, setCustomBreakTime] = useState(5);
 
+  // 检查是否需要清空任务
+  const checkAndClearTasks = () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    
+    // 在午夜 00:00 时清空任务
+    if (hours === 0 && minutes === 0) {
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      // 将当前任务移动到已完成，并标记为自动完成
+      const tasksToComplete = tasks.map(task => ({
+        ...task,
+        endAt: now,
+        completedAt: now,
+        autoCompleted: true
+      }));
+      
+      setCompletedTasks(prev => [...prev, ...tasksToComplete]);
+      setTasks([]);
+      
+      // 可以选择性地保留最近7天的已完成任务
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      setCompletedTasks(prev => 
+        prev.filter(task => new Date(task.completedAt) > sevenDaysAgo)
+      );
+    }
+  };
+
   useEffect(() => {
     setTime(new Date());
     const intervalId = setInterval(() => {
       const now = new Date();
       setTime(now);
+      checkAndClearTasks();
     }, 1000);
     return () => clearInterval(intervalId);
-  }, []);
+  }, [tasks]);
 
   useEffect(() => {
     let timerId;
@@ -34,13 +73,23 @@ export const TaskManager = () => {
     return () => clearInterval(timerId);
   }, [activeTaskId, pomodoroTime]);
 
+  // 保存数据到 localStorage
+  useEffect(() => {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+  }, [completedTasks]);
+
   const addTask = (e) => {
     e.preventDefault();
     if (newTask.trim()) {
-      setTasks([
+      const newTasks = [
         ...tasks,
         { id: Date.now(), text: newTask, startAt: null, endAt: null },
-      ]);
+      ];
+      setTasks(newTasks);
       setNewTask('');
     }
   };
@@ -87,41 +136,50 @@ export const TaskManager = () => {
     setBreakTime(customBreakTime * 60);
   };
 
+  // 计算一天的进度百分比
+  const getDayProgress = () => {
+    const now = new Date();
+    const totalMinutes = now.getHours() * 60 + now.getMinutes();
+    return (totalMinutes / (24 * 60)) * 100;
+  };
+
   return (
-    <div className="p-6 max-w-2xl mx-auto bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-6 max-w-2xl mx-auto bg-blue-50 min-h-screen">
       {/* 时间设置 */}
-      <div className="mb-6 p-6 bg-white rounded-xl shadow-lg flex gap-4 items-center">
-        <input
-          type="number"
-          value={customPomodoroTime}
-          onChange={(e) => setCustomPomodoroTime(Number(e.target.value))}
-          className="px-4 py-2 border rounded-lg"
-          placeholder="番茄钟时间（分钟）"
-        />
-        <input
-          type="number"
-          value={customBreakTime}
-          onChange={(e) => setCustomBreakTime(Number(e.target.value))}
-          className="px-4 py-2 border rounded-lg"
-          placeholder="休息时间（分钟）"
-        />
-        <button
-          onClick={updateCustomTimes}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
-          <Settings className="inline w-5 h-5 mr-1" />
-          更新时间
-        </button>
+      <div className="mb-6 p-4 md:p-6 bg-white rounded-xl shadow-lg">
+        <div className="flex flex-col md:flex-row gap-4">
+          <input
+            type="number"
+            value={customPomodoroTime}
+            onChange={(e) => setCustomPomodoroTime(Number(e.target.value))}
+            className="px-4 py-2 border rounded-lg flex-1"
+            placeholder="番茄钟时间（分钟）"
+          />
+          <input
+            type="number"
+            value={customBreakTime}
+            onChange={(e) => setCustomBreakTime(Number(e.target.value))}
+            className="px-4 py-2 border rounded-lg flex-1"
+            placeholder="休息时间（分钟）"
+          />
+          <button
+            onClick={updateCustomTimes}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Settings className="inline w-5 h-5 mr-1" />
+            更新时间
+          </button>
+        </div>
       </div>
 
       {/* 时间进度条 */}
-      <div className="mb-8 p-6 bg-white rounded-2xl shadow-lg backdrop-blur-lg backdrop-filter">
-        <div className="flex items-center justify-between mb-4">
+      <div className="mb-8 p-4 md:p-6 bg-white rounded-2xl shadow-lg">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-4">
           <div className="flex items-center gap-3">
-            <Clock className="w-8 h-8 text-indigo-600" />
+            <Clock className="w-8 h-8 text-blue-600" />
             <span className="text-2xl font-bold text-gray-800">今日进度</span>
           </div>
-          <span className="text-3xl font-mono font-semibold text-indigo-600">
+          <span className="text-3xl font-mono font-semibold text-blue-600">
             {time.toLocaleTimeString('zh-CN', {
               hour: '2-digit',
               minute: '2-digit',
@@ -130,24 +188,33 @@ export const TaskManager = () => {
             })}
           </span>
         </div>
+        <div className="relative w-full h-4 bg-blue-100 rounded-full overflow-hidden">
+          <div
+            className="absolute top-0 left-0 h-full bg-blue-600 transition-all duration-1000"
+            style={{ width: `${getDayProgress()}%` }}
+          />
+        </div>
+        <div className="mt-2 text-right text-sm text-blue-600 font-medium">
+          {getDayProgress().toFixed(1)}%
+        </div>
       </div>
 
       {/* 添加任务表单 */}
       <form onSubmit={addTask} className="mb-8">
-        <div className="flex gap-3">
+        <div className="flex flex-col md:flex-row gap-3">
           <input
             type="text"
             value={newTask}
             onChange={(e) => setNewTask(e.target.value)}
             placeholder="添加新任务..."
-            className="flex-1 px-6 py-4 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg transition-all duration-200"
+            className="flex-1 px-4 md:px-6 py-3 md:py-4 bg-white border-2 border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg transition-all"
           />
           <button
             type="submit"
-            className="px-6 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center gap-2 transition-all duration-200 font-semibold"
+            className="px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors font-semibold"
           >
             <Plus className="w-6 h-6" />
-            添加
+            <span>添加</span>
           </button>
         </div>
       </form>
@@ -158,7 +225,7 @@ export const TaskManager = () => {
         {tasks.map((task) => (
           <div
             key={task.id}
-            className="p-4 bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-between group"
+            className="p-4 bg-white rounded-xl shadow-md hover:shadow-lg transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
           >
             <span className="flex-1 text-lg text-gray-700">{task.text}</span>
             <div className="flex items-center gap-3">
@@ -169,7 +236,7 @@ export const TaskManager = () => {
                   </span>
                   <button
                     onClick={stopPomodoro}
-                    className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
+                    className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                   >
                     <Pause className="w-5 h-5" />
                   </button>
@@ -177,20 +244,20 @@ export const TaskManager = () => {
               ) : (
                 <button
                   onClick={() => startPomodoro(task.id)}
-                  className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors duration-200"
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                 >
                   <Play className="w-5 h-5" />
                 </button>
               )}
               <button
                 onClick={() => completeTask(task.id)}
-                className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors duration-200"
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
               >
                 <Check className="w-5 h-5" />
               </button>
               <button
                 onClick={() => deleteTask(task.id)}
-                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 opacity-0 group-hover:opacity-100"
+                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -205,17 +272,24 @@ export const TaskManager = () => {
         {completedTasks.map((task) => (
           <div
             key={task.id}
-            className="p-4 bg-gray-50 rounded-xl flex items-center justify-between hover:bg-gray-100 transition-all duration-200"
+            className="p-4 bg-blue-50 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-2 hover:bg-blue-100 transition-all"
           >
-            <span className="flex-1 line-through text-gray-500 text-lg">
-              {task.text}
-            </span>
-            <span className="text-sm text-gray-400 font-mono">
-              开始: {task.startAt?.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) || '无'}
-            </span>
-            <span className="text-sm text-gray-400 font-mono">
-              完成: {task.endAt?.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) || '无'}
-            </span>
+            <div className="flex-1 flex items-center gap-2">
+              <span className="line-through text-gray-500 text-lg">
+                {task.text}
+              </span>
+              {task.autoCompleted && (
+                <span className="text-xs px-2 py-1 bg-gray-200 text-gray-600 rounded">自动结束</span>
+              )}
+            </div>
+            <div className="flex gap-4 text-sm text-gray-400 font-mono">
+              <span>
+                开始: {task.startAt ? new Date(task.startAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '无'}
+              </span>
+              <span>
+                完成: {task.endAt ? new Date(task.endAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '无'}
+              </span>
+            </div>
           </div>
         ))}
       </div>
