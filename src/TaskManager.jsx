@@ -48,6 +48,8 @@ const TaskManager = () => {
   const [showCompletedTasks, setShowCompletedTasks] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [showCompletionAlert, setShowCompletionAlert] = useState(false);
+  const [showTimerAlert, setShowTimerAlert] = useState(false);
+  const [timerAlertMessage, setTimerAlertMessage] = useState('');
   const [completedTaskMessage, setCompletedTaskMessage] = useState('');
   const [error, setError] = useState(null);
   
@@ -164,8 +166,14 @@ const TaskManager = () => {
             const next = prev - elapsed;
             if (next <= 0) {
               showNotification('Break Time Over', 'Time to get back to work!');
+              setTimerAlertMessage('Break time over! Back to focus mode...');
+              setShowTimerAlert(true);
               setIsBreakTime(false);
               setPomodoroTime(customPomodoroTime * 60);
+              // Hide the alert after 3 seconds
+              setTimeout(() => {
+                setShowTimerAlert(false);
+              }, 3000);
               return customBreakTime * 60;
             }
             return next;
@@ -175,12 +183,18 @@ const TaskManager = () => {
             const next = prev - elapsed;
             if (next <= 0) {
               showNotification('Pomodoro Complete', 'Time for a break!');
+              setTimerAlertMessage('Focus session complete! Taking a break...');
+              setShowTimerAlert(true);
               setIsBreakTime(true);
               setStats(prev => ({
                 ...prev,
                 totalPomodoroTime: prev.totalPomodoroTime + customPomodoroTime
               }));
-              return customPomodoroTime * 60;
+              // Hide the alert after 3 seconds
+              setTimeout(() => {
+                setShowTimerAlert(false);
+              }, 3000);
+              return customBreakTime * 60;
             }
             return next;
           });
@@ -514,6 +528,15 @@ const TaskManager = () => {
           </div>
         )}
       </div>
+
+      {/* Timer Alert */}
+      {showTimerAlert && (
+        <Alert className="mb-4 transform-gpu transition-all duration-300 animate-pulse bg-blue-50">
+          <Clock className="h-4 w-4" />
+          <AlertTitle>Timer Update</AlertTitle>
+          <AlertDescription>{timerAlertMessage}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Completion Alert */}
       {showCompletionAlert && (
