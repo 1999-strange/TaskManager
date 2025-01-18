@@ -32,6 +32,22 @@ const TaskManager = () => {
   const timerStartRef = useRef(null);
   const lastTickRef = useRef(null);
 
+  // Calculate duration between two dates
+  const calculateDuration = (startDate, endDate) => {
+    if (!startDate || !endDate) return null;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const durationInMinutes = Math.round((end - start) / (1000 * 60));
+    
+    if (durationInMinutes < 60) {
+      return `${durationInMinutes} minutes`;
+    } else {
+      const hours = Math.floor(durationInMinutes / 60);
+      const minutes = durationInMinutes % 60;
+      return `${hours} hours ${minutes} minutes`;
+    }
+  };
+
   // Load saved data from localStorage
   useEffect(() => {
     const loadSavedData = () => {
@@ -94,7 +110,7 @@ const TaskManager = () => {
           setBreakTime(prev => {
             const next = prev - elapsed;
             if (next <= 0) {
-              setTimerAlertMessage('休息时间结束！开始专注...');
+              setTimerAlertMessage('Break time is over! Time to focus...');
               setShowTimerAlert(true);
               setIsBreakTime(false);
               setPomodoroTime(customPomodoroTime * 60);
@@ -107,7 +123,7 @@ const TaskManager = () => {
           setPomodoroTime(prev => {
             const next = prev - elapsed;
             if (next <= 0) {
-              setTimerAlertMessage('专注时间结束！开始休息...');
+              setTimerAlertMessage('Focus time is over! Time for a break...');
               setShowTimerAlert(true);
               setIsBreakTime(true);
               setBreakTime(customBreakTime * 60);
@@ -139,13 +155,30 @@ const TaskManager = () => {
   }, []);
 
   const formatDateTime = useCallback((date) => {
-    return new Date(date).toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const inputDate = new Date(date);
+    const today = new Date();
+    
+    // Check if same day
+    const isSameDay = inputDate.getDate() === today.getDate() &&
+                     inputDate.getMonth() === today.getMonth() &&
+                     inputDate.getFullYear() === today.getFullYear();
+    
+    if (isSameDay) {
+      return inputDate.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } else {
+      return inputDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
   }, []);
 
   // Task management functions
@@ -326,7 +359,7 @@ const TaskManager = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto min-h-screen bg-white">
+    <div className="p-3 md:p-6 max-w-4xl mx-auto min-h-screen bg-gray-50">
       {/* Error Alert */}
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -339,22 +372,22 @@ const TaskManager = () => {
       )}
 
       {/* Progress bar and time display */}
-      <div className="mb-6 bg-white rounded-xl shadow-sm p-4 md:p-6">
+      <div className="mb-4 md:mb-6 bg-white/90 rounded-2xl shadow-sm p-3 md:p-6 backdrop-blur-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
           <div className="flex items-center gap-3">
             <Clock className="w-7 h-7 md:w-8 md:h-8 text-gray-900" />
-            <span className="text-xl md:text-2xl font-medium text-gray-900">今日进度</span>
+            <span className="text-2xl md:text-3xl font-medium text-gray-900">Today's Progress</span>
           </div>
-          <span className="font-mono text-xl md:text-2xl text-gray-900">
-            {time.toLocaleTimeString('zh-CN', { hour12: false })}
+          <span className="font-mono text-3xl md:text-4xl text-gray-900 tracking-wider">
+            {time.toLocaleTimeString('en-US', { hour12: true })}
           </span>
         </div>
         
         {/* Progress bar section */}
         <div className="relative w-full">
-          <div className="relative w-full h-4 md:h-5 bg-gray-100 rounded-full overflow-hidden">
+          <div className="relative w-full h-4 md:h-5 bg-gray-100/50 rounded-full overflow-hidden backdrop-blur-sm">
             <div
-              className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-500 to-violet-500 transition-all duration-1000"
+              className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000"
               style={{ width: `${(time.getHours() * 60 + time.getMinutes()) / (24 * 60) * 100}%` }}
             />
           </div>
@@ -368,50 +401,50 @@ const TaskManager = () => {
                 style={{ left: `${(hour / 24) * 100}%` }}
               >
                 <div className="h-3 w-0.5 bg-gray-200" />
-                <span className="text-sm md:text-base text-gray-500 mt-1">
-                  {`${hour.toString().padStart(2, '0')}:00`}
+                <span className="text-xs md:text-base text-gray-500 mt-1">
+                  {hour > 12 ? `${hour-12}:00 PM` : `${hour}:00 AM`}
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="mt-2 text-right text-base md:text-lg text-gray-500 font-medium">
+          <div className="mt-2 text-right text-lg md:text-xl text-gray-500 font-medium">
             {((time.getHours() * 60 + time.getMinutes()) / (24 * 60) * 100).toFixed(1)}%
           </div>
         </div>
       </div>
 
       {/* Settings and Add Task Form */}
-      <div className="mb-6 bg-white rounded-xl shadow-sm p-4 md:p-6">
+      <div className="mb-6 bg-white/90 rounded-2xl shadow-sm p-4 md:p-6 backdrop-blur-xl">
         {/* Time Settings */}
         <div className="flex flex-col sm:flex-row gap-4 mb-4">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
             <div className="flex items-center gap-2">
-              <span className="text-base text-gray-600">专注</span>
+              <span className="text-base text-gray-600">Focus</span>
               <input
                 type="number"
                 value={customPomodoroTime}
                 onChange={handlePomodoroTimeChange}
-                className="w-20 md:w-24 px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none text-center text-lg"
+                className="w-20 md:w-24 px-3 py-2 border-0 rounded-xl bg-gray-100/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-400 focus:outline-none text-center text-lg"
                 placeholder="25"
                 min="1"
                 max={MAX_POMODORO_TIME}
               />
-              <span className="text-base text-gray-600">分钟</span>
+              <span className="text-base text-gray-600">min</span>
             </div>
             
             <div className="flex items-center gap-2">
-              <span className="text-base text-gray-600">休息</span>
+              <span className="text-base text-gray-600">Break</span>
               <input
                 type="number"
                 value={customBreakTime}
                 onChange={handleBreakTimeChange}
-                className="w-20 md:w-24 px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-blue-400 focus:outline-none text-center text-lg"
+                className="w-20 md:w-24 px-3 py-2 border-0 rounded-xl bg-gray-100/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-400 focus:outline-none text-center text-lg"
                 placeholder="5"
                 min="1"
                 max={MAX_BREAK_TIME}
               />
-              <span className="text-base text-gray-600">分钟</span>
+              <span className="text-base text-gray-600">min</span>
             </div>
             
             <button
@@ -419,7 +452,7 @@ const TaskManager = () => {
               className="px-4 py-2 bg-gray-900 text-white text-base rounded-lg hover:bg-gray-800 flex items-center gap-2"
             >
               <Settings className="w-5 h-5" />
-              <span>更新设置</span>
+              <span>Update Settings</span>
             </button>
           </div>
         </div>
@@ -430,13 +463,13 @@ const TaskManager = () => {
             type="text"
             value={newTask}
             onChange={e => setNewTask(e.target.value)}
-            className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
-            placeholder="添加新任务..."
+            className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg border-0 rounded-2xl focus:ring-2 focus:ring-blue-400 focus:outline-none bg-gray-100/50 backdrop-blur-sm"
+            placeholder="Add new task..."
           />
           <button
             type="submit"
             disabled={!newTask.trim()}
-            className="px-6 py-3 md:py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
+            className="px-6 py-3 md:py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
           >
             <Plus className="w-6 h-6 md:w-7 md:h-7" />
           </button>
@@ -447,7 +480,7 @@ const TaskManager = () => {
       {showTimerAlert && (
         <Alert className="mb-4">
           <Clock className="h-4 w-4" />
-          <AlertTitle>计时器更新</AlertTitle>
+          <AlertTitle>Timer Update</AlertTitle>
           <AlertDescription>{timerAlertMessage}</AlertDescription>
         </Alert>
       )}
@@ -455,7 +488,7 @@ const TaskManager = () => {
       {showCompletionAlert && (
         <Alert className="mb-4">
           <Check className="h-4 w-4" />
-          <AlertTitle>任务完成！</AlertTitle>
+          <AlertTitle>Task Completed!</AlertTitle>
           <AlertDescription>{completedTaskMessage}</AlertDescription>
         </Alert>
       )}
@@ -466,13 +499,17 @@ const TaskManager = () => {
           <div key={date} className="space-y-4">
             <h2 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-3 px-2">
               <Calendar className="w-6 h-6 md:w-7 md:h-7" />
-              {new Date(date).toLocaleDateString()}
+              {new Date(date).toLocaleDateString('en-US', {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric'
+              })}
             </h2>
             {tasksByDate[date].map(task => (
               <div
                 key={task.id}
-                className={`bg-white border rounded-xl p-4 md:p-5 ${
-                  activeTaskId === task.id ? 'border-blue-400 border-2' : ''
+                className={`bg-white/90 backdrop-blur-xl shadow-sm border-0 rounded-2xl p-4 md:p-5 ${
+                  activeTaskId === task.id ? 'ring-2 ring-blue-400' : ''
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -482,14 +519,14 @@ const TaskManager = () => {
                     </span>
                     {task.startAt && (
                       <div className="text-base text-blue-600 mt-2">
-                        开始时间: {formatDateTime(task.startAt)}
+                        Started at: {formatDateTime(task.startAt)}
                       </div>
                     )}
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
                     {activeTaskId === task.id ? (
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-50">
+                        <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-50">
                           <span className="text-lg md:text-xl font-mono font-semibold text-gray-900 min-w-[80px] text-center">
                             {formatTime(isBreakTime ? breakTime : pomodoroTime)}
                           </span>
@@ -497,7 +534,7 @@ const TaskManager = () => {
                             onClick={() => setIsBreakTime(!isBreakTime)}
                             className="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-base"
                           >
-                            {isBreakTime ? "休息中" : "专注中"}
+                            {isBreakTime ? "Break" : "Focus"}
                           </button>
                           <button
                             onClick={resetTimer}
@@ -511,7 +548,7 @@ const TaskManager = () => {
                       <button
                         onClick={() => startPomodoro(task.id)}
                         className="p-3 text-blue-600 hover:bg-blue-50 rounded-lg"
-                        title="开始专注"
+                        title="Start Focus"
                       >
                         <Play className="w-6 h-6 md:w-7 md:h-7" />
                       </button>
@@ -519,14 +556,14 @@ const TaskManager = () => {
                     <button
                       onClick={() => completeTask(task.id)}
                       className="p-3 text-green-600 hover:bg-green-50 rounded-lg"
-                      title="完成任务"
+                      title="Complete Task"
                     >
                       <Check className="w-6 h-6 md:w-7 md:h-7" />
                     </button>
                     <button
                       onClick={() => deleteTask(task.id)}
                       className="p-3 text-red-600 hover:bg-red-50 rounded-lg"
-                      title="删除任务"
+                      title="Delete Task"
                     >
                       <X className="w-6 h-6 md:w-7 md:h-7" />
                     </button>
@@ -538,7 +575,7 @@ const TaskManager = () => {
         ))}
         {tasks.length === 0 && (
           <div className="text-center text-gray-500 py-12 text-lg">
-            暂无任务，开始添加新任务吧！
+            No tasks yet. Start by adding a new task!
           </div>
         )}
       </div>
@@ -546,25 +583,26 @@ const TaskManager = () => {
       {/* Completed Tasks */}
       {completedTasks.length > 0 && (
         <div className="mt-8 border-t pt-6">
-          <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">已完成任务</h2>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">Completed Tasks</h2>
           <div className="space-y-3">
             {sortedCompletedDates.map(date => (
-              <div key={date} className="border border-gray-100 rounded-xl overflow-hidden">
+              <div key={date} className="border border-gray-100 rounded-2xl overflow-hidden bg-white/90 backdrop-blur-xl">
                 <button
                   onClick={() => toggleDateExpansion(date)}
-                  className="w-full px-4 py-3 bg-gray-50 flex items-center justify-between hover:bg-gray-100 transition-colors"
+                  className="w-full px-4 py-3 bg-gray-50/80 flex items-center justify-between hover:bg-gray-100/80 transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     <Calendar className="w-5 h-5 text-gray-600" />
                     <span className="text-lg font-medium text-gray-700">
-                      {new Date(date).toLocaleDateString('zh-CN', {
-                        year: 'numeric',
+                      {new Date(date).toLocaleDateString('en-US', {
+                        weekday: 'long',
                         month: 'long',
-                        day: 'numeric'
+                        day: 'numeric',
+                        year: 'numeric'
                       })}
                     </span>
                     <span className="text-sm text-gray-500">
-                      ({completedTasksByDate[date].length} 项任务)
+                      ({completedTasksByDate[date].length} tasks)
                     </span>
                   </div>
                   {expandedDates.has(date) ? (
@@ -584,8 +622,13 @@ const TaskManager = () => {
                               {task.text}
                             </span>
                             <div className="flex flex-col text-sm text-gray-400 mt-2">
-                              <span>开始时间: {formatDateTime(task.startAt)}</span>
-                              <span>完成时间: {formatDateTime(task.completedAt)}</span>
+                              <span>Started at: {formatDateTime(task.startAt)}</span>
+                              <span>Completed at: {formatDateTime(task.completedAt)}</span>
+                              {calculateDuration(task.startAt, task.completedAt) && (
+                                <span className="text-blue-500">
+                                  Duration: {calculateDuration(task.startAt, task.completedAt)}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <Check className="w-6 h-6 md:w-7 md:h-7 text-green-600 flex-shrink-0" />
