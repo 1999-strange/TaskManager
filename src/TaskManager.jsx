@@ -54,9 +54,33 @@ const TaskManager = () => {
       try {
         const savedTasks = localStorage.getItem('tasks');
         const savedCompletedTasks = localStorage.getItem('completedTasks');
+        const savedTimerState = localStorage.getItem('timerState');
         
         if (savedTasks) setTasks(JSON.parse(savedTasks));
         if (savedCompletedTasks) setCompletedTasks(JSON.parse(savedCompletedTasks));
+        
+        if (savedTimerState) {
+          const {
+            activeTaskId: savedActiveTaskId,
+            isBreakTime: savedIsBreakTime,
+            pomodoroTime: savedPomodoroTime,
+            breakTime: savedBreakTime,
+            timerStart: savedTimerStart,
+            lastTick: savedLastTick,
+            customPomodoroTime: savedCustomPomodoroTime,
+            customBreakTime: savedCustomBreakTime
+          } = JSON.parse(savedTimerState);
+          
+          setActiveTaskId(savedActiveTaskId);
+          setIsBreakTime(savedIsBreakTime);
+          setPomodoroTime(savedPomodoroTime);
+          setBreakTime(savedBreakTime);
+          setCustomPomodoroTime(savedCustomPomodoroTime);
+          setCustomBreakTime(savedCustomBreakTime);
+          
+          if (savedTimerStart) timerStartRef.current = savedTimerStart;
+          if (savedLastTick) lastTickRef.current = savedLastTick;
+        }
       } catch (error) {
         console.error('Error loading saved data:', error);
         setError('Failed to load saved data');
@@ -72,6 +96,22 @@ const TaskManager = () => {
       try {
         localStorage.setItem('tasks', JSON.stringify(tasks));
         localStorage.setItem('completedTasks', JSON.stringify(completedTasks));
+        
+        if (activeTaskId) {
+          const timerState = {
+            activeTaskId,
+            isBreakTime,
+            pomodoroTime,
+            breakTime,
+            timerStart: timerStartRef.current,
+            lastTick: lastTickRef.current,
+            customPomodoroTime,
+            customBreakTime
+          };
+          localStorage.setItem('timerState', JSON.stringify(timerState));
+        } else {
+          localStorage.removeItem('timerState');
+        }
       } catch (error) {
         console.error('Error saving data:', error);
         setError('Failed to save data');
@@ -80,7 +120,7 @@ const TaskManager = () => {
 
     const timeoutId = setTimeout(saveData, 500);
     return () => clearTimeout(timeoutId);
-  }, [tasks, completedTasks]);
+  }, [tasks, completedTasks, activeTaskId, isBreakTime, pomodoroTime, breakTime, customPomodoroTime, customBreakTime]);
 
   // Clock update
   useEffect(() => {
@@ -417,9 +457,9 @@ const TaskManager = () => {
       {/* Settings and Add Task Form */}
       <div className="mb-6 bg-white/90 rounded-2xl shadow-sm p-4 md:p-6 backdrop-blur-xl">
         {/* Time Settings */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-            <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="inline-flex items-center gap-2 flex-shrink-0">
               <span className="text-base text-gray-600">Focus</span>
               <input
                 type="number"
@@ -433,7 +473,7 @@ const TaskManager = () => {
               <span className="text-base text-gray-600">min</span>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-2 flex-shrink-0">
               <span className="text-base text-gray-600">Break</span>
               <input
                 type="number"
@@ -449,7 +489,7 @@ const TaskManager = () => {
             
             <button
               onClick={updateTimes}
-              className="px-4 py-2 bg-gray-900 text-white text-base rounded-lg hover:bg-gray-800 flex items-center gap-2"
+              className="px-4 py-2 bg-gray-900 text-white text-base rounded-lg hover:bg-gray-800 flex items-center gap-2 flex-shrink-0"
             >
               <Settings className="w-5 h-5" />
               <span>Update Settings</span>
