@@ -399,7 +399,7 @@ const TaskManager = () => {
   };
 
   return (
-    <div className="p-3 md:p-6 max-w-2xl mx-auto min-h-screen bg-gray-50">
+    <div className="p-3 md:p-6 max-w-1xl mx-auto min-h-screen bg-gray-50">
       {/* Error Alert */}
       {error && (
         <Alert variant="destructive" className="mb-4">
