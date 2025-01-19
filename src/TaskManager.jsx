@@ -399,10 +399,10 @@ const TaskManager = () => {
   };
 
   return (
-    <div className="p-3 md:p-6 max-w-1xl mx-auto min-h-screen bg-gray-50">
+    <div className="p-2 md:p-6 max-w-1xl mx-auto min-h-screen bg-gray-50">
       {/* Error Alert */}
       {error && (
-        <Alert variant="destructive" className="mb-4">
+        <Alert variant="destructive" className="mb-3">
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
           <button onClick={() => setError(null)} className="absolute top-2 right-2 text-red-600">
@@ -412,20 +412,20 @@ const TaskManager = () => {
       )}
 
       {/* Progress bar and time display */}
-      <div className="mb-4 md:mb-6 bg-white/90 rounded-2xl shadow-sm p-3 md:p-6 backdrop-blur-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
-          <div className="flex items-center gap-3">
-            <Clock className="w-7 h-7 md:w-8 md:h-8 text-gray-900" />
-            <span className="text-2xl md:text-3xl font-medium text-gray-900">Today's Progress</span>
+      <div className="mb-3 md:mb-6 bg-white/90 rounded-xl shadow-sm p-3 backdrop-blur-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+          <div className="flex items-center gap-2">
+            <Clock className="w-6 h-6 md:w-8 md:h-8 text-gray-900" />
+            <span className="text-xl md:text-3xl font-medium text-gray-900">Today's Progress</span>
           </div>
-          <span className="font-mono text-3xl md:text-4xl text-gray-900 tracking-wider">
+          <span className="font-mono text-2xl md:text-4xl text-gray-900 tracking-wider">
             {time.toLocaleTimeString('en-US', { hour12: false })}
           </span>
         </div>
         
         {/* Progress bar section */}
         <div className="relative w-full">
-          <div className="relative w-full h-4 md:h-5 bg-gray-100/50 rounded-full overflow-hidden backdrop-blur-sm">
+          <div className="relative w-full h-3 md:h-5 bg-gray-100/50 rounded-full overflow-hidden backdrop-blur-sm">
             <div
               className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-1000"
               style={{ width: `${(time.getHours() * 60 + time.getMinutes()) / (24 * 60) * 100}%` }}
@@ -433,92 +433,92 @@ const TaskManager = () => {
           </div>
           
           {/* Time markers */}
-          <div className="relative w-full h-8 mt-2">
+          <div className="relative w-full h-6 mt-1">
             {[6, 9, 12, 15, 18, 21].map(hour => (
               <div
                 key={hour}
                 className="absolute transform -translate-x-1/2 flex flex-col items-center"
                 style={{ left: `${(hour / 24) * 100}%` }}
               >
-                <div className="h-3 w-0.5 bg-gray-200" />
-                <span className="text-xs md:text-base text-gray-500 mt-1">
+                <div className="h-2 w-0.5 bg-gray-200" />
+                <span className="text-xs md:text-base text-gray-500 mt-0.5">
                   {hour.toString().padStart(2, '0')}:00
                 </span>
               </div>
             ))}
           </div>
 
-          <div className="mt-2 text-right text-lg md:text-xl text-gray-500 font-medium">
+          <div className="mt-1 text-right text-base md:text-xl text-gray-500 font-medium">
             {((time.getHours() * 60 + time.getMinutes()) / (24 * 60) * 100).toFixed(1)}%
           </div>
         </div>
       </div>
 
       {/* Settings and Add Task Form */}
-      <div className="mb-6 bg-white/90 rounded-2xl shadow-sm p-4 md:p-6 backdrop-blur-xl">
+      <div className="mb-4 md:mb-6 bg-white/90 rounded-xl shadow-sm p-3 backdrop-blur-xl">
         {/* Time Settings */}
-        <div className="flex flex-col gap-4 mb-4">
-          <div className="flex flex-wrap items-center gap-4">
+        <div className="flex flex-col gap-3 mb-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="inline-flex items-center gap-2 flex-shrink-0">
-              <span className="text-base text-gray-600">Focus</span>
+              <span className="text-sm md:text-base text-gray-600">Focus</span>
               <input
                 type="number"
                 value={customPomodoroTime}
                 onChange={handlePomodoroTimeChange}
-                className="w-20 md:w-24 px-3 py-2 border-0 rounded-xl bg-gray-100/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-400 focus:outline-none text-center text-lg"
+                className="w-16 md:w-24 px-2 py-1.5 border-0 rounded-lg bg-gray-100/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-400 focus:outline-none text-center text-base"
                 placeholder="25"
                 min="1"
                 max={MAX_POMODORO_TIME}
               />
-              <span className="text-base text-gray-600">min</span>
+              <span className="text-sm md:text-base text-gray-600">min</span>
             </div>
             
             <div className="inline-flex items-center gap-2 flex-shrink-0">
-              <span className="text-base text-gray-600">Break</span>
+              <span className="text-sm md:text-base text-gray-600">Break</span>
               <input
                 type="number"
                 value={customBreakTime}
                 onChange={handleBreakTimeChange}
-                className="w-20 md:w-24 px-3 py-2 border-0 rounded-xl bg-gray-100/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-400 focus:outline-none text-center text-lg"
+                className="w-16 md:w-24 px-2 py-1.5 border-0 rounded-lg bg-gray-100/50 backdrop-blur-sm focus:ring-2 focus:ring-blue-400 focus:outline-none text-center text-base"
                 placeholder="5"
                 min="1"
                 max={MAX_BREAK_TIME}
               />
-              <span className="text-base text-gray-600">min</span>
+              <span className="text-sm md:text-base text-gray-600">min</span>
             </div>
             
             <button
               onClick={updateTimes}
-              className="px-4 py-2 bg-gray-900 text-white text-base rounded-lg hover:bg-gray-800 flex items-center gap-2 flex-shrink-0"
+              className="px-3 py-1.5 bg-gray-900 text-white text-sm md:text-base rounded-lg hover:bg-gray-800 flex items-center gap-2 flex-shrink-0"
             >
-              <Settings className="w-5 h-5" />
-              <span>Update Settings</span>
+              <Settings className="w-4 h-4" />
+              <span>Update</span>
             </button>
           </div>
         </div>
 
         {/* Add Task Form */}
-        <form onSubmit={handleAddTask} className="flex gap-3">
+        <form onSubmit={handleAddTask} className="flex gap-2">
           <input
             type="text"
             value={newTask}
             onChange={e => setNewTask(e.target.value)}
-            className="flex-1 px-4 py-3 md:py-4 text-base md:text-lg border-0 rounded-2xl focus:ring-2 focus:ring-blue-400 focus:outline-none bg-gray-100/50 backdrop-blur-sm"
+            className="flex-1 px-3 py-2 md:py-4 text-base border-0 rounded-xl focus:ring-2 focus:ring-blue-400 focus:outline-none bg-gray-100/50 backdrop-blur-sm"
             placeholder="Add new task..."
           />
           <button
             type="submit"
             disabled={!newTask.trim()}
-            className="px-6 py-3 md:py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
+            className="px-4 py-2 md:py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center"
           >
-            <Plus className="w-6 h-6 md:w-7 md:h-7" />
+            <Plus className="w-5 h-5 md:w-7 md:h-7" />
           </button>
         </form>
       </div>
 
       {/* Alerts */}
       {showTimerAlert && (
-        <Alert className="mb-4">
+        <Alert className="mb-3">
           <Clock className="h-4 w-4" />
           <AlertTitle>Timer Update</AlertTitle>
           <AlertDescription>{timerAlertMessage}</AlertDescription>
@@ -526,7 +526,7 @@ const TaskManager = () => {
       )}
 
       {showCompletionAlert && (
-        <Alert className="mb-4">
+        <Alert className="mb-3">
           <Check className="h-4 w-4" />
           <AlertTitle>Task Completed!</AlertTitle>
           <AlertDescription>{completedTaskMessage}</AlertDescription>
@@ -534,11 +534,11 @@ const TaskManager = () => {
       )}
 
       {/* Tasks List */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {sortedDates.map(date => (
-          <div key={date} className="space-y-4">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-3 px-2">
-              <Calendar className="w-6 h-6 md:w-7 md:h-7" />
+          <div key={date} className="space-y-3 md:space-y-4">
+            <h2 className="text-lg md:text-2xl font-bold text-gray-800 flex items-center gap-2 px-1">
+              <Calendar className="w-5 h-5 md:w-7 md:h-7" />
               {new Date(date).toLocaleDateString('en-US', {
                 weekday: 'long',
                 month: 'long',
@@ -548,64 +548,64 @@ const TaskManager = () => {
             {tasksByDate[date].map(task => (
               <div
                 key={task.id}
-                className={`bg-white/90 backdrop-blur-xl shadow-sm border-0 rounded-2xl p-4 md:p-5 ${
+                className={`bg-white/90 backdrop-blur-xl shadow-sm border-0 rounded-xl p-3 md:p-5 ${
                   activeTaskId === task.id ? 'ring-2 ring-blue-400' : ''
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <span className="text-lg md:text-xl text-gray-700 block break-words">
+                    <span className="text-base md:text-xl text-gray-700 block break-words">
                       {task.text}
                     </span>
                     {task.startAt && (
-                      <div className="text-base text-blue-600 mt-2">
+                      <div className="text-sm md:text-base text-blue-600 mt-1">
                         Started at: {formatDateTime(task.startAt)}
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {activeTaskId === task.id ? (
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-gray-50">
-                          <span className="text-lg md:text-xl font-mono font-semibold text-gray-900 min-w-[80px] text-center">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50">
+                          <span className="text-base md:text-xl font-mono font-semibold text-gray-900 min-w-[70px] text-center">
                             {formatTime(isBreakTime ? breakTime : pomodoroTime)}
                           </span>
                           <button
                             onClick={() => setIsBreakTime(!isBreakTime)}
-                            className="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg text-base"
+                            className="px-2 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg text-sm"
                           >
                             {isBreakTime ? "Break" : "Focus"}
                           </button>
                           <button
                             onClick={resetTimer}
-                            className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                            className="p-1.5 text-gray-700 hover:bg-gray-100 rounded-lg"
                           >
-                            <Pause className="w-6 h-6 md:w-7 md:h-7" />
+                            <Pause className="w-5 h-5 md:w-7 md:h-7" />
                           </button>
                         </div>
                       </div>
                     ) : (
                       <button
                         onClick={() => startPomodoro(task.id)}
-                        className="p-3 text-blue-600 hover:bg-blue-50 rounded-lg"
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
                         title="Start Focus"
                       >
-                        <Play className="w-6 h-6 md:w-7 md:h-7" />
+                        <Play className="w-5 h-5 md:w-7 md:h-7" />
                       </button>
                     )}
                     <button
                       onClick={() => completeTask(task.id)}
-                      className="p-3 text-green-600 hover:bg-green-50 rounded-lg"
+                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
                       title="Complete Task"
                     >
-                      <Check className="w-6 h-6 md:w-7 md:h-7" />
+                      <Check className="w-5 h-5 md:w-7 md:h-7" />
                     </button>
                     <button
                       onClick={() => deleteTask(task.id)}
-                      className="p-3 text-red-600 hover:bg-red-50 rounded-lg"
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                       title="Delete Task"
                     >
-                      <X className="w-6 h-6 md:w-7 md:h-7" />
+                      <X className="w-5 h-5 md:w-7 md:h-7" />
                     </button>
                   </div>
                 </div>
@@ -614,7 +614,7 @@ const TaskManager = () => {
           </div>
         ))}
         {tasks.length === 0 && (
-          <div className="text-center text-gray-500 py-12 text-lg">
+          <div className="text-center text-gray-500 py-8 text-base md:text-lg">
             No tasks yet. Start by adding a new task!
           </div>
         )}
@@ -622,46 +622,45 @@ const TaskManager = () => {
 
       {/* Completed Tasks */}
       {completedTasks.length > 0 && (
-        <div className="mt-8 border-t pt-6">
-          <h2 className="text-xl md:text-2xl font-bold text-gray-800 mb-4">Completed Tasks</h2>
-          <div className="space-y-3">
+        <div className="mt-6 border-t pt-4 md:pt-6">
+          <h2 className="text-lg md:text-2xl font-bold text-gray-800 mb-3">Completed Tasks</h2>
+          <div className="space-y-2 md:space-y-3">
             {sortedCompletedDates.map(date => (
-              <div key={date} className="border border-gray-100 rounded-2xl overflow-hidden bg-white/90 backdrop-blur-xl">
+              <div key={date} className="border border-gray-100 rounded-xl overflow-hidden bg-white/90 backdrop-blur-xl">
                 <button
                   onClick={() => toggleDateExpansion(date)}
-                  className="w-full px-4 py-3 bg-gray-50/80 flex items-center justify-between hover:bg-gray-100/80 transition-colors"
+                  className="w-full px-3 py-2 bg-gray-50/80 flex items-center justify-between hover:bg-gray-100/80 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-gray-600" />
-                    <span className="text-lg font-medium text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-gray-600" />
+                    <span className="text-base md:text-lg font-medium text-gray-700">
                       {new Date(date).toLocaleDateString('en-US', {
                         weekday: 'long',
                         month: 'long',
-                        day: 'numeric',
-                        year: 'numeric'
+                        day: 'numeric'
                       })}
                     </span>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-xs md:text-sm text-gray-500">
                       ({completedTasksByDate[date].length} tasks)
                     </span>
                   </div>
                   {expandedDates.has(date) ? (
-                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
                   ) : (
-                    <ChevronRight className="w-5 h-5 text-gray-500" />
+                    <ChevronRight className="w-4 h-4 text-gray-500" />
                   )}
                 </button>
                 
                 {expandedDates.has(date) && (
                   <div className="divide-y divide-gray-100">
                     {completedTasksByDate[date].map(task => (
-                      <div key={task.id} className="p-4 md:p-5 bg-white">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div key={task.id} className="p-3 md:p-5 bg-white">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <span className="line-through text-lg text-gray-500 block break-words">
+                            <span className="line-through text-base md:text-lg text-gray-500 block break-words">
                               {task.text}
                             </span>
-                            <div className="flex flex-col text-sm text-gray-400 mt-2">
+                            <div className="flex flex-col text-xs md:text-sm text-gray-400 mt-1">
                               <span>Started at: {formatDateTime(task.startAt)}</span>
                               <span>Completed at: {formatDateTime(task.completedAt)}</span>
                               {calculateDuration(task.startAt, task.completedAt) && (
@@ -671,7 +670,7 @@ const TaskManager = () => {
                               )}
                             </div>
                           </div>
-                          <Check className="w-6 h-6 md:w-7 md:h-7 text-green-600 flex-shrink-0" />
+                          <Check className="w-5 h-5 md:w-7 md:h-7 text-green-600 flex-shrink-0" />
                         </div>
                       </div>
                     ))}
