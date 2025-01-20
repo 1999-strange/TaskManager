@@ -413,7 +413,7 @@ const TaskManager = () => {
 
       {/* Progress bar and time display */}
       <div className="mb-3 md:mb-6 bg-white/90 rounded-xl shadow-sm p-3 backdrop-blur-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+      <div className="flex sm:items-center justify-between mb-4 gap-2">
           <div className="flex items-center gap-2">
             <Clock className="w-6 h-6 md:w-8 md:h-8 text-gray-900" />
             <span className="text-xl md:text-3xl font-medium text-gray-900">Today's Progress</span>
