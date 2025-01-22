@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, Check, Play, Pause, Plus, X, Settings, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Analytics } from "@vercel/analytics/react"
 
 const DEFAULT_POMODORO_TIME = 25;
 const DEFAULT_BREAK_TIME = 5;
