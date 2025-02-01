@@ -13,12 +13,16 @@ const TaskManager = () => {
   const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [completedTasks, setCompletedTasks] = useState([]);
-  const [showCompletionAlert, setShowCompletionAlert] = useState(false);
   const [showTimerAlert, setShowTimerAlert] = useState(false);
   const [timerAlertMessage, setTimerAlertMessage] = useState('');
-  const [completedTaskMessage, setCompletedTaskMessage] = useState('');
   const [error, setError] = useState(null);
   const [expandedDates, setExpandedDates] = useState(new Set());
+  
+  // Custom completion alert state
+  const [completionAlert, setCompletionAlert] = useState({
+    show: false,
+    task: null
+  });
   
   // Pomodoro states
   const [activeTaskId, setActiveTaskId] = useState(null);
@@ -37,6 +41,10 @@ const TaskManager = () => {
     if (!startDate || !endDate) return null;
     const start = new Date(startDate);
     const end = new Date(endDate);
+    
+    // Return null if either date is invalid
+    if (start.getFullYear() <= 1970 || end.getFullYear() <= 1970) return null;
+    
     const durationInMinutes = Math.round((end - start) / (1000 * 60));
     
     if (durationInMinutes < 60) {
@@ -47,6 +55,46 @@ const TaskManager = () => {
       return `${hours} hours ${minutes} minutes`;
     }
   };
+
+  // Format date time with null check
+  const formatDateTime = useCallback((date) => {
+    if (!date) return 'Not started';
+    
+    const inputDate = new Date(date);
+    const today = new Date();
+    
+    // Check if valid date
+    if (inputDate.getFullYear() <= 1970) return 'Not started';
+    
+    const isSameDay = inputDate.getDate() === today.getDate() &&
+                     inputDate.getMonth() === today.getMonth() &&
+                     inputDate.getFullYear() === today.getFullYear();
+    
+    if (isSameDay) {
+      return inputDate.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    } else {
+      return inputDate.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+    }
+  }, []);
+
+  // Calculate timer progress
+  const calculateProgress = useCallback(() => {
+    if (!activeTaskId) return 0;
+    const totalTime = isBreakTime ? (customBreakTime * 60) : (customPomodoroTime * 60);
+    const currentTime = isBreakTime ? breakTime : pomodoroTime;
+    return ((totalTime - currentTime) / totalTime) * 100;
+  }, [activeTaskId, isBreakTime, breakTime, pomodoroTime, customBreakTime, customPomodoroTime]);
 
   // Load saved data from localStorage
   useEffect(() => {
@@ -194,33 +242,6 @@ const TaskManager = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   }, []);
 
-  const formatDateTime = useCallback((date) => {
-    const inputDate = new Date(date);
-    const today = new Date();
-    
-    // Check if same day
-    const isSameDay = inputDate.getDate() === today.getDate() &&
-                     inputDate.getMonth() === today.getMonth() &&
-                     inputDate.getFullYear() === today.getFullYear();
-    
-    if (isSameDay) {
-      return inputDate.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-    } else {
-      return inputDate.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-    }
-  }, []);
-
   // Task management functions
   const handleAddTask = useCallback((e) => {
     e.preventDefault();
@@ -327,17 +348,25 @@ const TaskManager = () => {
       
       const completedTask = {
         ...task,
-        endAt: new Date(),
+        endAt: task.startAt ? new Date() : null,
         completedAt: new Date()
       };
       
       setCompletedTasks(prev => [...prev, completedTask]);
       setTasks(prev => prev.filter(t => t.id !== taskId));
-      setCompletedTaskMessage(task.text);
-      setShowCompletionAlert(true);
       
+      // Show completion alert
+      setCompletionAlert({
+        show: true,
+        task: completedTask
+      });
+      
+      // Auto hide after 3 seconds
       setTimeout(() => {
-        setShowCompletionAlert(false);
+        setCompletionAlert({
+          show: false,
+          task: null
+        });
       }, 3000);
 
       if (activeTaskId === taskId) {
@@ -364,8 +393,7 @@ const TaskManager = () => {
   // Group tasks by date
   const tasksByDate = tasks.reduce((acc, task) => {
     const date = task.date;
-    if (!acc[date]) {
-      acc[date] = [];
+    if (!acc[date]) {acc[date] = [];
     }
     acc[date].push(task);
     return acc;
@@ -411,9 +439,44 @@ const TaskManager = () => {
         </Alert>
       )}
 
+      {/* Custom Completion Alert */}
+      {completionAlert.show && completionAlert.task && (
+        <div className="fixed top-4 right-4 left-4 md:top-6 md:right-6 md:left-auto md:w-96 bg-white shadow-lg rounded-xl p-4 border border-green-100 z-50 transform transition-all duration-300 ease-out opacity-100 translate-y-0">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+              <Check className="w-6 h-6 text-green-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-lg font-semibold text-gray-900 mb-1">Task Completed!</h4>
+              <p className="text-gray-600 break-words">{completionAlert.task.text}</p>
+              {completionAlert.task.startAt && (
+                <div className="mt-2 text-sm text-gray-500">
+                  Duration: {calculateDuration(completionAlert.task.startAt, completionAlert.task.completedAt)}
+                </div>
+              )}
+            </div>
+            <button 
+              onClick={() => setCompletionAlert({ show: false, task: null })}
+              className="flex-shrink-0 text-gray-400 hover:text-gray-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Timer Alert */}
+      {showTimerAlert && (
+        <Alert className="mb-3">
+          <Clock className="h-4 w-4" />
+          <AlertTitle>Timer Update</AlertTitle>
+          <AlertDescription>{timerAlertMessage}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Progress bar and time display */}
       <div className="mb-3 md:mb-6 bg-white/90 rounded-xl shadow-sm p-3 backdrop-blur-xl">
-      <div className="flex sm:items-center justify-between mb-4 gap-2">
+        <div className="flex sm:items-center justify-between mb-4 gap-2">
           <div className="flex items-center gap-2">
             <Clock className="w-6 h-6 md:w-8 md:h-8 text-gray-900" />
             <span className="text-xl md:text-3xl font-medium text-gray-900">Today's Progress</span>
@@ -516,23 +579,6 @@ const TaskManager = () => {
         </form>
       </div>
 
-      {/* Alerts */}
-      {showTimerAlert && (
-        <Alert className="mb-3">
-          <Clock className="h-4 w-4" />
-          <AlertTitle>Timer Update</AlertTitle>
-          <AlertDescription>{timerAlertMessage}</AlertDescription>
-        </Alert>
-      )}
-
-      {showCompletionAlert && (
-        <Alert className="mb-3">
-          <Check className="h-4 w-4" />
-          <AlertTitle>Task Completed!</AlertTitle>
-          <AlertDescription>{completedTaskMessage}</AlertDescription>
-        </Alert>
-      )}
-
       {/* Tasks List */}
       <div className="space-y-4 md:space-y-6">
         {sortedDates.map(date => (
@@ -566,22 +612,31 @@ const TaskManager = () => {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {activeTaskId === task.id ? (
                       <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50">
-                          <span className="text-base md:text-xl font-mono font-semibold text-gray-900 min-w-[70px] text-center">
-                            {formatTime(isBreakTime ? breakTime : pomodoroTime)}
-                          </span>
-                          <button
-                            onClick={() => setIsBreakTime(!isBreakTime)}
-                            className="px-2 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg text-sm"
-                          >
-                            {isBreakTime ? "Break" : "Focus"}
-                          </button>
-                          <button
-                            onClick={resetTimer}
-                            className="p-1.5 text-gray-700 hover:bg-gray-100 rounded-lg"
-                          >
-                            <Pause className="w-5 h-5 md:w-7 md:h-7" />
-                          </button>
+                        <div className="flex flex-col gap-2 px-3 py-1.5 rounded-lg bg-gray-50">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base md:text-xl font-mono font-semibold text-gray-900 min-w-[70px] text-center">
+                              {formatTime(isBreakTime ? breakTime : pomodoroTime)}
+                            </span>
+                            <button
+                              onClick={() => setIsBreakTime(!isBreakTime)}
+                              className="px-2 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg text-sm"
+                            >
+                              {isBreakTime ? "Break" : "Focus"}
+                            </button>
+                            <button
+                              onClick={resetTimer}
+                              className="p-1.5 text-gray-700 hover:bg-gray-100 rounded-lg"
+                            >
+                              <Pause className="w-5 h-5 md:w-7 md:h-7" />
+                            </button>
+                          </div>
+                          {/* Timer Progress Bar */}
+                          <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-blue-600 transition-all duration-200"
+                              style={{ width: `${calculateProgress()}%` }}
+                            />
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -632,7 +687,7 @@ const TaskManager = () => {
                   className="w-full px-3 py-2 bg-gray-50/80 flex items-center justify-between hover:bg-gray-100/80 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-600" />
+                    <Calendar className="w-4 h-4text-gray-600" />
                     <span className="text-base md:text-lg font-medium text-gray-700">
                       {new Date(date).toLocaleDateString('en-US', {
                         weekday: 'long',
@@ -661,9 +716,9 @@ const TaskManager = () => {
                               {task.text}
                             </span>
                             <div className="flex flex-col text-xs md:text-sm text-gray-400 mt-1">
-                              <span>Started at: {formatDateTime(task.startAt)}</span>
-                              <span>Completed at: {formatDateTime(task.completedAt)}</span>
-                              {calculateDuration(task.startAt, task.completedAt) && (
+                              <span>{task.startAt ? `Started: ${formatDateTime(task.startAt)}` : 'Not started'}</span>
+                              <span>Completed: {formatDateTime(task.completedAt)}</span>
+                              {task.startAt && calculateDuration(task.startAt, task.completedAt) && (
                                 <span className="text-blue-500">
                                   Duration: {calculateDuration(task.startAt, task.completedAt)}
                                 </span>
