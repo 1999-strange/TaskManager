@@ -17,6 +17,8 @@ const TaskManager = () => {
   const [timerAlertMessage, setTimerAlertMessage] = useState('');
   const [error, setError] = useState(null);
   const [expandedDates, setExpandedDates] = useState(new Set());
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editingText, setEditingText] = useState('');
   
   // Custom completion alert state
   const [completionAlert, setCompletionAlert] = useState({
@@ -267,6 +269,29 @@ const TaskManager = () => {
     }
   }, [newTask]);
 
+  const startEditing = useCallback((task) => {
+    setEditingTaskId(task.id);
+    setEditingText(task.text);
+  }, []);
+
+  const handleRename = useCallback((taskId) => {
+    const trimmedText = editingText.trim();
+    if (!trimmedText) return;
+
+    try {
+      setTasks(prev => prev.map(task => 
+        task.id === taskId 
+          ? { ...task, text: trimmedText }
+          : task
+      ));
+      setEditingTaskId(null);
+      setEditingText('');
+    } catch (error) {
+      console.error('Error renaming task:', error);
+      setError('Failed to rename task');
+    }
+  }, [editingText]);
+
   const handlePomodoroTimeChange = useCallback((e) => {
     const value = e.target.value;
     if (!value) {
@@ -318,7 +343,7 @@ const TaskManager = () => {
       setTasks(prev => 
         prev.map(task => 
           task.id === taskId 
-            ? { ...task, startAt: new Date() }
+            ? { ...task, startAt: task.startAt || new Date() }
             : task
         )
       );
@@ -393,7 +418,8 @@ const TaskManager = () => {
   // Group tasks by date
   const tasksByDate = tasks.reduce((acc, task) => {
     const date = task.date;
-    if (!acc[date]) {acc[date] = [];
+    if (!acc[date]) {
+      acc[date] = [];
     }
     acc[date].push(task);
     return acc;
@@ -600,9 +626,34 @@ const TaskManager = () => {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <span className="text-base md:text-xl text-gray-700 block break-words">
-                      {task.text}
-                    </span>
+                    {editingTaskId === task.id ? (
+                      <form 
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleRename(task.id);
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <input
+                          type="text"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          className="flex-1 px-3 py-2 text-base border rounded-lg focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                          autoFocus
+                          onBlur={() => handleRename(task.id)}
+                        />
+                      </form>
+                    ) : (
+                      <div 
+                        className="group flex items-center gap-2"
+                        onClick={() => startEditing(task)}
+                      >
+                        <span className="text-base md:text-xl text-gray-700 block break-words cursor-pointer group-hover:text-blue-600">
+                          {task.text}
+                        </span>
+                        <Settings className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    )}
                     {task.startAt && (
                       <div className="text-sm md:text-base text-blue-600 mt-1">
                         Started at: {formatDateTime(task.startAt)}
@@ -687,7 +738,7 @@ const TaskManager = () => {
                   className="w-full px-3 py-2 bg-gray-50/80 flex items-center justify-between hover:bg-gray-100/80 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4text-gray-600" />
+                    <Calendar className="w-4 h-4 text-gray-600" />
                     <span className="text-base md:text-lg font-medium text-gray-700">
                       {new Date(date).toLocaleDateString('en-US', {
                         weekday: 'long',
