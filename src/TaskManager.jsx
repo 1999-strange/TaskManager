@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, Check, Play, Pause, Plus, X, Settings, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const DEFAULT_POMODORO_TIME = 25;
 const DEFAULT_BREAK_TIME = 5;
@@ -366,6 +367,32 @@ const TaskManager = () => {
     lastTickRef.current = null;
   }, [customPomodoroTime, customBreakTime]);
 
+  const deleteCompletedTask = useCallback((taskId) => {
+    try {
+      const taskToDelete = completedTasks.find(t => t.id === taskId);
+      if (!taskToDelete) return;
+
+      const taskDate = new Date(taskToDelete.completedAt).toISOString().split('T')[0];
+      const remainingTasksForDate = completedTasks.filter(t => 
+        t.id !== taskId && 
+        new Date(t.completedAt).toISOString().split('T')[0] === taskDate
+      );
+      
+      // Remove the task from completedTasks
+      setCompletedTasks// Remove the task from completedTasks
+      setCompletedTasks(prev => prev.filter(t => t.id !== taskId));
+      
+      // If this was the last task for this date, automatically remove the date
+      if (remainingTasksForDate.length === 0) {
+        // The date will automatically disappear from the UI since there are no more tasks
+        // No need to manually handle expandedDates as this date won't be shown anymore
+      }
+    } catch (error) {
+      console.error('Error deleting completed task:', error);
+      setError('Failed to delete completed task');
+    }
+  }, [completedTasks]);
+
   const completeTask = useCallback((taskId) => {
     try {
       const task = tasks.find(t => t.id === taskId);
@@ -670,8 +697,7 @@ const TaskManager = () => {
                             </span>
                             <button
                               onClick={() => setIsBreakTime(!isBreakTime)}
-                              className="px-2 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg text-sm"
-                            >
+                              className="px-2 py-1.5 text-gray-700 hover:bg-gray-100 rounded-lg text-sm">
                               {isBreakTime ? "Break" : "Focus"}
                             </button>
                             <button
@@ -776,7 +802,42 @@ const TaskManager = () => {
                               )}
                             </div>
                           </div>
-                          <Check className="w-5 h-5 md:w-7 md:h-7 text-green-600 flex-shrink-0" />
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <Check className="w-5 h-5 md:w-7 md:h-7 text-green-600" />
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  title="Delete completed task"
+                                >
+                                  <X className="w-5 h-5 md:w-7 md:h-7" />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Task</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete this completed task?
+                                    <div className="mt-2 p-2 bg-gray-100 rounded-lg">
+                                      <p className="text-gray-900">{task.text}</p>
+                                      <p className="text-sm text-gray-500 mt-1">
+                                        Completed: {formatDateTime(task.completedAt)}
+                                      </p>
+                                    </div>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteCompletedTask(task.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
                       </div>
                     ))}
