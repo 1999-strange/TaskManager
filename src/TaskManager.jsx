@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Clock, Check, Play, Pause, Plus, Trash2, Settings, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import { Clock, Check, Play, Pause, Plus, Trash2, Settings, Calendar, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -253,16 +253,33 @@ const TaskManager = () => {
     if (!trimmedTask) return;
     
     try {
+      // Create a new Date object for consistent date handling
+      const now = new Date();
       const newTaskItem = {
-        id: Date.now(),
+        id: now.getTime(), // Using timestamp for ID
         text: trimmedTask,
-        date: new Date().toISOString().split('T')[0],
+        date: now.toISOString().split('T')[0],
         startAt: null,
         endAt: null,
-        createdAt: new Date()
+        createdAt: now
       };
       
-      setTasks(prev => [...prev, newTaskItem]);
+      // Update tasks state with proper error handling
+      setTasks(prev => {
+        const updatedTasks = [...prev, newTaskItem];
+        try {
+          // Verify the new state is valid
+          if (!Array.isArray(updatedTasks)) {
+            throw new Error('Invalid tasks state');
+          }
+          return updatedTasks;
+        } catch (error) {
+          console.error('Error updating tasks:', error);
+          return prev; // Return previous state if update fails
+        }
+      });
+      
+      // Clear input field
       setNewTask('');
     } catch (error) {
       console.error('Error adding task:', error);
