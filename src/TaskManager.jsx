@@ -787,7 +787,7 @@ const TaskManager = () => {
                   <div className="divide-y divide-gray-100">
                     {completedTasksByDate[date].map(task => (
                       <div key={task.id} className="p-3 md:p-5 bg-white">
-                        <div className="flex items-start gap-2 pr-6">
+                        <div className="flex items-start gap-2 pr-4">
                           <div className="flex-1 min-w-0">
                             <span className="line-through text-base md:text-lg text-gray-500 block break-words">
                               {task.text}
