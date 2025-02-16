@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Clock, Check, Play, Pause, Plus, X, Settings, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import { Clock, Check, Play, Pause, Plus, Trash2, Settings, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
@@ -803,15 +803,14 @@ const TaskManager = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <Check className="w-5 h-5 md:w-7 md:h-7 text-green-600" />
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <button
-                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                  title="Delete completed task"
-                                >
-                                  <X className="w-5 h-5 md:w-7 md:h-7" />
-                                </button>
+                          <AlertDialog>
+                           <AlertDialogTrigger asChild>
+                        <button
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                         title="Delete completed task"
+                           >
+                            <Trash2 className="w-5 h-5 md:w-6 md:h-6" />
+                             </button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
