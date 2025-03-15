@@ -189,18 +189,46 @@ const TaskItem = memo(({
               onChange={(e) => setEditText(e.target.value)}
               className="flex-1 px-3 py-2 text-base border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-400 dark:focus:ring-blue-500 focus:outline-none bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               autoFocus
-              onBlur={() => handleRename(task.id)}
+              // 移除 onBlur 处理，改为仅使用 onKeyDown
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleRename(task.id);
+                } else if (e.key === 'Escape') {
+                  // 这里的取消逻辑会在 TaskManager 组件中处理
+                  setEditText(task.text); // 重置文本
+                  onEdit(null); // 调用 onEdit 并传 null 来取消编辑
+                }
+              }}
             />
+            <button 
+              type="submit" 
+              className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+            >
+              <Check className="w-5 h-5" />
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                setEditText(task.text); // 重置文本
+                onEdit(null); // 传 null 来取消编辑
+              }}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </form>
         ) : (
-          <div 
-            className="group flex items-center gap-2"
-            onClick={onEdit}
-          >
-            <span className="text-base md:text-lg text-gray-700 dark:text-gray-200 block break-words cursor-pointer group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          <div className="group flex items-center gap-2">
+            <span 
+              className="text-base md:text-lg text-gray-700 dark:text-gray-200 block break-words cursor-pointer group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors"
+              onClick={() => onEdit(task)} // 确保这里传递 task 参数
+            >
               {task.text}
             </span>
-            <Settings className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <Settings 
+              className="w-4 h-4 text-gray-400 dark:text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" 
+              onClick={() => onEdit(task)} // 同样确保这里传递 task 参数
+            />
           </div>
         )}
         {task.startAt && (
@@ -341,10 +369,10 @@ const DateGroup = memo(({
           onStart={() => onStart(task.id)}
           onComplete={() => onComplete(task.id)}
           onDelete={() => onDelete(task.id)}
-          onEdit={() => startEditing(task)}
+          onEdit={startEditing} // 直接传递函数，不要在这里包装
           isEditing={editingTaskId === task.id}
           editText={editingText}
-          setEditingText={setEditingText}
+          setEditText={setEditingText}
           handleRename={handleRename}
           formatDateTime={formatDateTime}
           timerDisplay={
@@ -642,8 +670,8 @@ const TaskManager = () => {
           setIsBreakTime(savedIsBreakTime);
           setPomodoroTime(savedPomodoroTime);
           setBreakTime(savedBreakTime);
-          setCustomPomodoroTime(savedCustomPomodoroTime);
-          setCustomBreakTime(savedCustomBreakTime);
+          setCustomPomodoroTime(savedCustomPomodoroTime || DEFAULT_POMODORO_TIME);
+          setCustomBreakTime(savedCustomBreakTime || DEFAULT_BREAK_TIME);
           
           if (savedTimerStart) timerStartRef.current = savedTimerStart;
           if (savedLastTick) lastTickRef.current = savedLastTick;
@@ -694,6 +722,23 @@ const TaskManager = () => {
     const clockInterval = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(clockInterval);
   }, []);
+
+  // Keyboard event handlers for editing
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && editingTaskId) {
+        // Find original task text
+        const originalTask = tasks.find(task => task.id === editingTaskId);
+        if (originalTask) {
+          setEditingText(originalTask.text);
+        }
+        setEditingTaskId(null);
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [editingTaskId, tasks]);
 
   // Pomodoro timer
   useEffect(() => {
@@ -803,28 +848,48 @@ const TaskManager = () => {
     }
   }, [newTask]);
 
-  const startEditing = useCallback((task) => {
-    setEditingTaskId(task.id);
-    setEditingText(task.text);
-  }, []);
+ const startEditing = useCallback((task) => {
+  // 如果传入 null，则取消编辑
+  if (!task) {
+    setEditingTaskId(null);
+    setEditingText('');
+    return;
+  }
+  
+  setEditingTaskId(task.id);
+  setEditingText(task.text);
+}, []);
 
-  const handleRename = useCallback((taskId) => {
-    const trimmedText = editingText.trim();
-    if (!trimmedText) return;
-
-    try {
+const handleRename = useCallback((taskId) => {
+  // 如果没有正在编辑的任务，直接返回
+  if (!editingTaskId) return;
+  
+  const trimmedText = editingText.trim();
+  
+  // 如果文本为空，保持原始文本
+  if (!trimmedText) {
+    const originalTask = tasks.find(task => task.id === taskId);
+    if (originalTask) {
+      // 更新回原始文本
       setTasks(prev => prev.map(task => 
         task.id === taskId 
-          ? { ...task, text: trimmedText }
+          ? { ...task, text: originalTask.text }
           : task
       ));
-      setEditingTaskId(null);
-      setEditingText('');
-    } catch (error) {
-      console.error('Error renaming task:', error);
-      setError('Failed to rename task');
     }
-  }, [editingText]);
+  } else {
+    // 更新为新文本
+    setTasks(prev => prev.map(task => 
+      task.id === taskId 
+        ? { ...task, text: trimmedText }
+        : task
+    ));
+  }
+  
+  // 完成编辑
+  setEditingTaskId(null);
+  setEditingText('');
+}, [editingTaskId, editingText, tasks]);
 
   const handlePomodoroTimeChange = useCallback((e) => {
     const value = e.target.value;
@@ -1130,6 +1195,7 @@ const TaskManager = () => {
             calculateProgress={calculateProgress}
             pomodoroTime={pomodoroTime}
             breakTime={breakTime}
+            setEditingTaskId={setEditingTaskId}
           />
         ))}
         {tasks.length === 0 && (
