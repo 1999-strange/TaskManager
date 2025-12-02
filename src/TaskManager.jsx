@@ -1,6 +1,10 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// 主应用代码开始
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import React, { 
   useState, useEffect, useRef, useCallback, memo, createContext, 
-  useContext, useMemo, useReducer 
+  useContext, useMemo
 } from 'react';
 import { 
   Clock, Check, Play, Pause, Plus, Trash2, AlertTriangle, 
@@ -12,29 +16,20 @@ import {
   ArrowRight, RotateCcw, Maximize2, Minimize2, Moon, Sun,
   ChevronUp, Circle, Square, Triangle, Hexagon, Diamond,
   CheckCircle2, XCircle, Timer, Coffee, Brain, Rocket,
-  Info, AlertOctagon, PartyPopper, BellRing, Monitor
+  Info, AlertOctagon, PartyPopper, BellRing, Monitor,
+  Sliders, Save, RefreshCw
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ████████╗ ██████╗███████╗    ██╗   ██╗██████╗    ██████╗ 
-// ╚══██╔══╝██╔════╝██╔════╝    ██║   ██║╚════██╗   ╚════██╗
-//    ██║   ██║     ███████╗    ██║   ██║ █████╔╝    █████╔╝
-//    ██║   ██║     ╚════██║    ╚██╗ ██╔╝ ╚═══██╗   ██╔═══╝ 
-//    ██║   ╚██████╗███████║     ╚████╔╝ ██████╔╝██╗███████╗
-//    ╚═╝    ╚═════╝╚══════╝      ╚═══╝  ╚═════╝ ╚═╝╚══════╝
-//                                                          
-// TACTICAL CONTROL SYSTEM v3.2
-// With Day/Night Theme & In-App Notifications
+// CONFIGURATION & CONSTANTS - 支持自定义
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// CONFIGURATION & CONSTANTS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const CONFIG = {
-  FOCUS_TIME: 25 * 60,
-  BREAK_TIME: 5 * 60,
-  DELAY_PROTOCOL_TIME: 15 * 60,
+const DEFAULT_CONFIG = {
+  FOCUS_TIME: 25 * 60,           // 默认25分钟
+  BREAK_TIME: 5 * 60,            // 默认5分钟
+  DELAY_PROTOCOL_TIME: 15 * 60,  // 默认15分钟
+  LONG_BREAK_TIME: 15 * 60,      // 长休息15分钟
+  SESSIONS_BEFORE_LONG_BREAK: 4, // 4次专注后长休息
   MELTDOWN_THRESHOLD: 3,
   PURITY_REDUCTION_PER_EXCEPTION: 7,
   DAILY_POLICY_LIMIT: 1,
@@ -44,6 +39,33 @@ const CONFIG = {
   NIGHT_START_HOUR: 18,
 };
 
+// 时间预设选项
+const TIME_PRESETS = {
+  focus: [
+    { label: '15分钟', value: 15 * 60 },
+    { label: '25分钟', value: 25 * 60 },
+    { label: '30分钟', value: 30 * 60 },
+    { label: '45分钟', value: 45 * 60 },
+    { label: '60分钟', value: 60 * 60 },
+    { label: '90分钟', value: 90 * 60 },
+    { label: '120分钟', value: 120 * 60 },
+  ],
+  break: [
+    { label: '3分钟', value: 3 * 60 },
+    { label: '5分钟', value: 5 * 60 },
+    { label: '10分钟', value: 10 * 60 },
+    { label: '15分钟', value: 15 * 60 },
+    { label: '20分钟', value: 20 * 60 },
+  ],
+  delay: [
+    { label: '5分钟', value: 5 * 60 },
+    { label: '10分钟', value: 10 * 60 },
+    { label: '15分钟', value: 15 * 60 },
+    { label: '20分钟', value: 20 * 60 },
+    { label: '30分钟', value: 30 * 60 },
+  ]
+};
+
 const PRIORITY = {
   CRITICAL: 'critical',
   HIGH: 'high', 
@@ -51,110 +73,121 @@ const PRIORITY = {
   LOW: 'low'
 };
 
-// Theme color tokens
+// Apple-inspired theme tokens with blue accent
 const THEMES = {
-  dark: {
-    name: 'dark',
-    label: '深色模式',
-    icon: Moon,
-    bg: {
-      primary: '#0a0a0f',
-      secondary: '#111118',
-      tertiary: '#1a1a24',
-      card: 'rgba(255,255,255,0.03)',
-      cardHover: 'rgba(255,255,255,0.05)',
-    },
-    text: {
-      primary: 'rgba(255,255,255,0.95)',
-      secondary: 'rgba(255,255,255,0.70)',
-      tertiary: 'rgba(255,255,255,0.40)',
-      muted: 'rgba(255,255,255,0.20)',
-    },
-    border: {
-      primary: 'rgba(255,255,255,0.08)',
-      secondary: 'rgba(255,255,255,0.05)',
-      accent: 'rgba(16,185,129,0.30)',
-    },
-    accent: {
-      emerald: '#10b981',
-      cyan: '#06b6d4',
-      rose: '#f43f5e',
-      amber: '#f59e0b',
-      purple: '#a855f7',
-    },
-    glow: {
-      emerald: 'rgba(16,185,129,0.15)',
-      cyan: 'rgba(6,182,212,0.15)',
-      rose: 'rgba(244,63,94,0.15)',
-      amber: 'rgba(245,158,11,0.15)',
-    },
-    gradient: {
-      orb1: 'rgba(16,185,129,0.05)',
-      orb2: 'rgba(6,182,212,0.05)',
-    }
-  },
   light: {
     name: 'light',
-    label: '浅色模式',
+    label: '浅色',
     icon: Sun,
     bg: {
-      primary: '#f8fafc',
-      secondary: '#f1f5f9',
-      tertiary: '#e2e8f0',
-      card: 'rgba(255,255,255,0.80)',
-      cardHover: 'rgba(255,255,255,0.95)',
+      primary: '#F5F5F7',
+      secondary: '#FFFFFF',
+      tertiary: '#E8E8ED',
+      elevated: 'rgba(255, 255, 255, 0.72)',
+      card: 'rgba(255, 255, 255, 0.8)',
+      cardHover: 'rgba(255, 255, 255, 0.92)',
+      blur: 'rgba(255, 255, 255, 0.65)',
     },
     text: {
-      primary: 'rgba(15,23,42,0.95)',
-      secondary: 'rgba(15,23,42,0.70)',
-      tertiary: 'rgba(15,23,42,0.50)',
-      muted: 'rgba(15,23,42,0.25)',
+      primary: '#1D1D1F',
+      secondary: '#424245',
+      tertiary: '#86868B',
+      muted: '#AEAEB2',
+      inverse: '#FFFFFF',
     },
     border: {
-      primary: 'rgba(15,23,42,0.10)',
-      secondary: 'rgba(15,23,42,0.06)',
-      accent: 'rgba(16,185,129,0.40)',
+      primary: 'rgba(0, 0, 0, 0.06)',
+      secondary: 'rgba(0, 0, 0, 0.04)',
+      focus: 'rgba(0, 122, 255, 0.4)',
     },
     accent: {
-      emerald: '#059669',
-      cyan: '#0891b2',
-      rose: '#e11d48',
-      amber: '#d97706',
-      purple: '#9333ea',
+      blue: '#007AFF',
+      indigo: '#5856D6',
+      green: '#34C759',
+      orange: '#FF9500',
+      red: '#FF3B30',
+      teal: '#5AC8FA',
+      purple: '#AF52DE',
+      pink: '#FF2D55',
     },
-    glow: {
-      emerald: 'rgba(16,185,129,0.10)',
-      cyan: 'rgba(6,182,212,0.10)',
-      rose: 'rgba(244,63,94,0.10)',
-      amber: 'rgba(245,158,11,0.10)',
+    fill: {
+      blue: 'rgba(0, 122, 255, 0.12)',
+      indigo: 'rgba(88, 86, 214, 0.12)',
+      green: 'rgba(52, 199, 89, 0.12)',
+      orange: 'rgba(255, 149, 0, 0.12)',
+      red: 'rgba(255, 59, 48, 0.12)',
+      teal: 'rgba(90, 200, 250, 0.12)',
+      purple: 'rgba(175, 82, 222, 0.12)',
     },
-    gradient: {
-      orb1: 'rgba(16,185,129,0.08)',
-      orb2: 'rgba(6,182,212,0.08)',
-    }
+    shadow: {
+      sm: '0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)',
+      md: '0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04)',
+      lg: '0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06)',
+      xl: '0 24px 60px rgba(0, 0, 0, 0.16), 0 8px 24px rgba(0, 0, 0, 0.08)',
+      glow: '0 0 40px rgba(0, 122, 255, 0.15)',
+    },
+  },
+  dark: {
+    name: 'dark',
+    label: '深色',
+    icon: Moon,
+    bg: {
+      primary: '#000000',
+      secondary: '#1C1C1E',
+      tertiary: '#2C2C2E',
+      elevated: 'rgba(44, 44, 46, 0.72)',
+      card: 'rgba(44, 44, 46, 0.65)',
+      cardHover: 'rgba(58, 58, 60, 0.75)',
+      blur: 'rgba(28, 28, 30, 0.72)',
+    },
+    text: {
+      primary: '#F5F5F7',
+      secondary: '#A1A1A6',
+      tertiary: '#6E6E73',
+      muted: '#48484A',
+      inverse: '#1D1D1F',
+    },
+    border: {
+      primary: 'rgba(255, 255, 255, 0.08)',
+      secondary: 'rgba(255, 255, 255, 0.05)',
+      focus: 'rgba(10, 132, 255, 0.5)',
+    },
+    accent: {
+      blue: '#0A84FF',
+      indigo: '#5E5CE6',
+      green: '#30D158',
+      orange: '#FF9F0A',
+      red: '#FF453A',
+      teal: '#64D2FF',
+      purple: '#BF5AF2',
+      pink: '#FF375F',
+    },
+    fill: {
+      blue: 'rgba(10, 132, 255, 0.18)',
+      indigo: 'rgba(94, 92, 230, 0.18)',
+      green: 'rgba(48, 209, 88, 0.18)',
+      orange: 'rgba(255, 159, 10, 0.18)',
+      red: 'rgba(255, 69, 58, 0.18)',
+      teal: 'rgba(100, 210, 255, 0.18)',
+      purple: 'rgba(191, 90, 242, 0.18)',
+    },
+    shadow: {
+      sm: '0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.4)',
+      md: '0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3)',
+      lg: '0 12px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3)',
+      xl: '0 24px 60px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4)',
+      glow: '0 0 60px rgba(10, 132, 255, 0.25)',
+    },
   }
 };
 
 const PRIORITY_CONFIG = {
-  [PRIORITY.CRITICAL]: { 
-    label: 'CRITICAL', 
-    colorKey: 'rose',
-  },
-  [PRIORITY.HIGH]: { 
-    label: 'HIGH', 
-    colorKey: 'amber',
-  },
-  [PRIORITY.NORMAL]: { 
-    label: 'NORMAL', 
-    colorKey: 'cyan',
-  },
-  [PRIORITY.LOW]: { 
-    label: 'LOW', 
-    colorKey: 'muted',
-  }
+  [PRIORITY.CRITICAL]: { label: '紧急', colorKey: 'red' },
+  [PRIORITY.HIGH]: { label: '重要', colorKey: 'orange' },
+  [PRIORITY.NORMAL]: { label: '普通', colorKey: 'blue' },
+  [PRIORITY.LOW]: { label: '低优先', colorKey: 'teal' }
 };
 
-// Achievement definitions
 const ACHIEVEMENTS = {
   FIRST_FOCUS: { id: 'first_focus', name: '初次启动', desc: '完成第一次专注', icon: Rocket, tier: 'bronze' },
   CHAIN_10: { id: 'chain_10', name: '十连击', desc: '达成10次连续专注', icon: Zap, tier: 'bronze' },
@@ -168,13 +201,12 @@ const ACHIEVEMENTS = {
 };
 
 const TIER_CONFIG = {
-  bronze: { colorKey: 'amber' },
-  silver: { colorKey: 'cyan' },
-  gold: { colorKey: 'amber' },
+  bronze: { colorKey: 'orange' },
+  silver: { colorKey: 'teal' },
+  gold: { colorKey: 'orange' },
   legendary: { colorKey: 'purple' },
 };
 
-// Default policy tree
 const DEFAULT_POLICY_TREE = [
   { id: 'root', name: '基础生存', description: '系统根节点', parentId: null, status: 'active', icon: 'hexagon', tier: 1 },
   { id: 'morning', name: '晨间仪式', description: '每日固定时间起床', parentId: 'root', status: 'locked', icon: 'sun', tier: 2 },
@@ -189,12 +221,11 @@ const DEFAULT_POLICY_TREE = [
   { id: 'strength', name: '力量训练', description: '每周2次力量训练', parentId: 'exercise', status: 'locked', icon: 'zap', tier: 3 },
 ];
 
-// Notification types
 const NOTIFICATION_TYPES = {
-  success: { icon: CheckCircle2, colorKey: 'emerald' },
-  warning: { icon: AlertTriangle, colorKey: 'amber' },
-  error: { icon: XCircle, colorKey: 'rose' },
-  info: { icon: Info, colorKey: 'cyan' },
+  success: { icon: CheckCircle2, colorKey: 'green' },
+  warning: { icon: AlertTriangle, colorKey: 'orange' },
+  error: { icon: XCircle, colorKey: 'red' },
+  info: { icon: Info, colorKey: 'blue' },
   achievement: { icon: Award, colorKey: 'purple' },
 };
 
@@ -202,21 +233,24 @@ const NOTIFICATION_TYPES = {
 // CONTEXTS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Theme Context
 const ThemeContext = createContext(null);
-
 const useTheme = () => {
   const context = useContext(ThemeContext);
   if (!context) throw new Error('useTheme must be used within ThemeProvider');
   return context;
 };
 
-// Notification Context
 const NotificationContext = createContext(null);
-
 const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) throw new Error('useNotifications must be used within NotificationProvider');
+  return context;
+};
+
+const ConfigContext = createContext(null);
+const useConfig = () => {
+  const context = useContext(ConfigContext);
+  if (!context) throw new Error('useConfig must be used within ConfigProvider');
   return context;
 };
 
@@ -232,6 +266,14 @@ const formatTime = (seconds) => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
+const formatTimeVerbose = (seconds) => {
+  const mins = Math.floor(Math.abs(seconds) / 60);
+  const secs = Math.abs(seconds) % 60;
+  if (mins === 0) return `${secs}秒`;
+  if (secs === 0) return `${mins}分钟`;
+  return `${mins}分${secs}秒`;
+};
+
 const formatDate = (date) => {
   if (!date) return '--';
   const d = new Date(date);
@@ -245,7 +287,7 @@ const formatDateTime = (date) => {
 };
 
 const calculatePurity = (exceptions) => {
-  const baseReduction = exceptions.length * CONFIG.PURITY_REDUCTION_PER_EXCEPTION;
+  const baseReduction = exceptions.length * DEFAULT_CONFIG.PURITY_REDUCTION_PER_EXCEPTION;
   return Math.max(0, 100 - baseReduction);
 };
 
@@ -253,7 +295,53 @@ const clsx = (...classes) => classes.filter(Boolean).join(' ');
 
 const isNightTime = () => {
   const hour = new Date().getHours();
-  return hour >= CONFIG.NIGHT_START_HOUR || hour < CONFIG.DAY_START_HOUR;
+  return hour >= DEFAULT_CONFIG.NIGHT_START_HOUR || hour < DEFAULT_CONFIG.DAY_START_HOUR;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONFIG PROVIDER - 管理自定义时间配置
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ConfigProvider = ({ children }) => {
+  const [config, setConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('focus_pro_config');
+      if (saved) {
+        return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
+      }
+    } catch (e) {
+      console.error('Config load failed:', e);
+    }
+    return DEFAULT_CONFIG;
+  });
+  
+  useEffect(() => {
+    try {
+      localStorage.setItem('focus_pro_config', JSON.stringify(config));
+    } catch (e) {
+      console.error('Config save failed:', e);
+    }
+  }, [config]);
+  
+  const updateConfig = useCallback((key, value) => {
+    setConfig(prev => ({ ...prev, [key]: value }));
+  }, []);
+  
+  const resetConfig = useCallback(() => {
+    setConfig(DEFAULT_CONFIG);
+  }, []);
+  
+  const value = useMemo(() => ({
+    config,
+    updateConfig,
+    resetConfig,
+  }), [config, updateConfig, resetConfig]);
+  
+  return (
+    <ConfigContext.Provider value={value}>
+      {children}
+    </ConfigContext.Provider>
+  );
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -262,37 +350,32 @@ const isNightTime = () => {
 
 const ThemeProvider = ({ children }) => {
   const [themeName, setThemeName] = useState(() => {
-    const saved = localStorage.getItem('tcs_theme');
+    const saved = localStorage.getItem('focus_pro_theme');
     if (saved) return saved;
     return isNightTime() ? 'dark' : 'light';
   });
   const [autoTheme, setAutoTheme] = useState(() => {
-    const saved = localStorage.getItem('tcs_auto_theme');
-    return saved !== null ? JSON.parse(saved) : CONFIG.AUTO_THEME_ENABLED;
+    const saved = localStorage.getItem('focus_pro_auto_theme');
+    return saved !== null ? JSON.parse(saved) : DEFAULT_CONFIG.AUTO_THEME_ENABLED;
   });
   
   const theme = THEMES[themeName];
   const isDark = themeName === 'dark';
   
-  // Auto theme switching
   useEffect(() => {
     if (!autoTheme) return;
-    
     const checkTime = () => {
       const shouldBeDark = isNightTime();
       setThemeName(shouldBeDark ? 'dark' : 'light');
     };
-    
     checkTime();
-    const interval = setInterval(checkTime, 60000); // Check every minute
-    
+    const interval = setInterval(checkTime, 60000);
     return () => clearInterval(interval);
   }, [autoTheme]);
   
-  // Save preferences
   useEffect(() => {
-    localStorage.setItem('tcs_theme', themeName);
-    localStorage.setItem('tcs_auto_theme', JSON.stringify(autoTheme));
+    localStorage.setItem('focus_pro_theme', themeName);
+    localStorage.setItem('focus_pro_auto_theme', JSON.stringify(autoTheme));
   }, [themeName, autoTheme]);
   
   const toggleTheme = useCallback(() => {
@@ -301,24 +384,14 @@ const ThemeProvider = ({ children }) => {
   }, []);
   
   const value = useMemo(() => ({
-    theme,
-    themeName,
-    isDark,
-    autoTheme,
-    setAutoTheme,
-    toggleTheme,
-    setThemeName,
+    theme, themeName, isDark, autoTheme, setAutoTheme, toggleTheme, setThemeName,
   }), [theme, themeName, isDark, autoTheme, toggleTheme]);
   
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// NOTIFICATION PROVIDER & TOAST SYSTEM
+// NOTIFICATION PROVIDER
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const NotificationProvider = ({ children }) => {
@@ -329,18 +402,15 @@ const NotificationProvider = ({ children }) => {
     const newNotification = {
       id,
       type: 'info',
-      duration: CONFIG.NOTIFICATION_DURATION,
+      duration: DEFAULT_CONFIG.NOTIFICATION_DURATION,
       ...notification,
       createdAt: Date.now(),
     };
     
     setNotifications(prev => [...prev, newNotification]);
     
-    // Auto remove
     if (newNotification.duration > 0) {
-      setTimeout(() => {
-        removeNotification(id);
-      }, newNotification.duration);
+      setTimeout(() => removeNotification(id), newNotification.duration);
     }
     
     return id;
@@ -350,11 +420,8 @@ const NotificationProvider = ({ children }) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
   
-  const clearAll = useCallback(() => {
-    setNotifications([]);
-  }, []);
+  const clearAll = useCallback(() => setNotifications([]), []);
   
-  // Convenience methods
   const notify = useMemo(() => ({
     success: (title, message) => addNotification({ type: 'success', title, message }),
     warning: (title, message) => addNotification({ type: 'warning', title, message }),
@@ -364,129 +431,163 @@ const NotificationProvider = ({ children }) => {
   }), [addNotification]);
   
   const value = useMemo(() => ({
-    notifications,
-    addNotification,
-    removeNotification,
-    clearAll,
-    notify,
+    notifications, addNotification, removeNotification, clearAll, notify,
   }), [notifications, addNotification, removeNotification, clearAll, notify]);
   
-  return (
-    <NotificationContext.Provider value={value}>
-      {children}
-    </NotificationContext.Provider>
-  );
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// NOTIFICATION TOAST COMPONENT
+// SERVICE WORKER HOOK - 实时更新支持
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const NotificationToast = memo(({ notification, onDismiss }) => {
-  const { theme, isDark } = useTheme();
-  const config = NOTIFICATION_TYPES[notification.type] || NOTIFICATION_TYPES.info;
-  const Icon = config.icon;
-  const accentColor = theme.accent[config.colorKey];
+const useServiceWorker = () => {
+  const [swReady, setSwReady] = useState(false);
+  const [swRegistration, setSwRegistration] = useState(null);
   
-  const [isExiting, setIsExiting] = useState(false);
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) {
+      console.log('Service Worker 不支持');
+      return;
+    }
+    
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('Service Worker 注册成功');
+        setSwRegistration(registration);
+        setSwReady(true);
+      })
+      .catch((error) => {
+        console.error('Service Worker 注册失败:', error);
+      });
+    
+    // 监听来自 SW 的消息
+    const handleMessage = (event) => {
+      const { type, data } = event.data;
+      switch (type) {
+        case 'ACTION_COMPLETE':
+          window.dispatchEvent(new CustomEvent('sw-complete'));
+          break;
+        case 'ACTION_PAUSE':
+          window.dispatchEvent(new CustomEvent('sw-pause'));
+          break;
+        case 'ACTION_START_NOW':
+          window.dispatchEvent(new CustomEvent('sw-start-now'));
+          break;
+        case 'ACTION_CANCEL':
+          window.dispatchEvent(new CustomEvent('sw-cancel'));
+          break;
+        case 'TIME_UP':
+          window.dispatchEvent(new CustomEvent('sw-time-up', { detail: data }));
+          break;
+      }
+    };
+    
+    navigator.serviceWorker.addEventListener('message', handleMessage);
+    
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleMessage);
+    };
+  }, []);
   
-  const handleDismiss = () => {
-    setIsExiting(true);
-    setTimeout(() => onDismiss(notification.id), 300);
+  const sendToSW = useCallback((type, data = {}) => {
+    if (navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type, data });
+    }
+  }, []);
+  
+  const startFocusNotification = useCallback((timeRemaining, isBreak, chainNumber, taskName) => {
+    sendToSW('START_FOCUS', { timeRemaining, isBreak, chainNumber, taskName });
+  }, [sendToSW]);
+  
+  const syncTime = useCallback((timeRemaining, isBreak) => {
+    sendToSW('SYNC_TIME', { timeRemaining, isBreak });
+  }, [sendToSW]);
+  
+  const updateState = useCallback((timeRemaining, isBreak, taskName) => {
+    sendToSW('UPDATE_STATE', { timeRemaining, isBreak, taskName });
+  }, [sendToSW]);
+  
+  const stopFocusNotification = useCallback(() => {
+    sendToSW('STOP_FOCUS');
+  }, [sendToSW]);
+  
+  const completeFocusNotification = useCallback((chainNumber) => {
+    sendToSW('COMPLETE_FOCUS', { chainNumber });
+  }, [sendToSW]);
+  
+  const startDelayNotification = useCallback((timeRemaining, chainNumber) => {
+    sendToSW('DELAY_START', { timeRemaining, chainNumber });
+  }, [sendToSW]);
+  
+  return {
+    swReady,
+    swRegistration,
+    startFocusNotification,
+    syncTime,
+    updateState,
+    stopFocusNotification,
+    completeFocusNotification,
+    startDelayNotification
   };
-  
-  return (
-    <div 
-      className={clsx(
-        'relative flex items-start gap-4 p-4 rounded-2xl border backdrop-blur-xl',
-        'shadow-xl transition-all duration-300',
-        isExiting ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'
-      )}
-      style={{
-        background: isDark ? 'rgba(20,20,30,0.95)' : 'rgba(255,255,255,0.95)',
-        borderColor: theme.border.primary,
-        boxShadow: `0 8px 32px ${theme.glow[config.colorKey]}`,
-      }}
-    >
-      {/* Accent line */}
-      <div 
-        className="absolute left-0 top-4 bottom-4 w-1 rounded-full"
-        style={{ background: accentColor }}
-      />
-      
-      {/* Icon */}
-      <div 
-        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ml-2"
-        style={{ background: `${accentColor}20` }}
-      >
-        <Icon className="w-5 h-5" style={{ color: accentColor }} />
-      </div>
-      
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div 
-          className="font-medium text-sm mb-0.5"
-          style={{ color: theme.text.primary }}
-        >
-          {notification.title}
-        </div>
-        {notification.message && (
-          <div 
-            className="text-sm"
-            style={{ color: theme.text.tertiary }}
-          >
-            {notification.message}
-          </div>
-        )}
-      </div>
-      
-      {/* Dismiss button */}
-      <button
-        onClick={handleDismiss}
-        className="p-1.5 rounded-lg transition-colors flex-shrink-0"
-        style={{ color: theme.text.muted }}
-      >
-        <X className="w-4 h-4" />
-      </button>
-      
-      {/* Progress bar */}
-      {notification.duration > 0 && (
-        <div 
-          className="absolute bottom-0 left-0 right-0 h-1 rounded-b-2xl overflow-hidden"
-          style={{ background: theme.border.secondary }}
-        >
-          <div 
-            className="h-full rounded-full animate-shrink"
-            style={{ 
-              background: accentColor,
-              animationDuration: `${notification.duration}ms`,
-            }}
-          />
-        </div>
-      )}
-    </div>
-  );
-});
-
-const NotificationContainer = memo(() => {
-  const { notifications, removeNotification } = useNotifications();
-  
-  return (
-    <div className="fixed top-6 right-6 z-[100] flex flex-col gap-3 max-w-sm w-full pointer-events-none">
-      {notifications.map(notification => (
-        <div key={notification.id} className="pointer-events-auto animate-slideIn">
-          <NotificationToast 
-            notification={notification} 
-            onDismiss={removeNotification}
-          />
-        </div>
-      ))}
-    </div>
-  );
-});
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// AUDIO SYSTEM
+// PWA NOTIFICATIONS HOOK
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const usePWANotifications = () => {
+  const [permission, setPermission] = useState('default');
+  const [isAndroid, setIsAndroid] = useState(false);
+  
+  useEffect(() => {
+    const userAgent = navigator.userAgent.toLowerCase();
+    setIsAndroid(/android/i.test(userAgent));
+    
+    if ('Notification' in window) {
+      setPermission(Notification.permission);
+    }
+  }, []);
+  
+  const requestPermission = useCallback(async () => {
+    if ('Notification' in window) {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      return result === 'granted';
+    }
+    return false;
+  }, []);
+  
+  const sendNotification = useCallback((title, options = {}) => {
+    if (permission === 'granted') {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then((registration) => {
+          registration.showNotification(title, {
+            icon: '/icon-192.png',
+            badge: '/badge-72.png',
+            vibrate: [200, 100, 200],
+            ...options
+          });
+        });
+        return null;
+      }
+      
+      const notification = new Notification(title, {
+        icon: '/icon-192.png',
+        badge: '/badge-72.png',
+        ...options
+      });
+      notification.onclick = () => { window.focus(); notification.close(); };
+      return notification;
+    }
+    return null;
+  }, [permission]);
+  
+  return { permission, requestPermission, sendNotification, isAndroid };
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUDIO HOOK
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const useAudio = () => {
@@ -521,72 +622,52 @@ const useAudio = () => {
       switch (type) {
         case 'activate':
           oscillator.type = 'sine';
-          oscillator.frequency.setValueAtTime(220, now);
-          oscillator.frequency.exponentialRampToValueAtTime(440, now + 0.1);
-          oscillator.frequency.exponentialRampToValueAtTime(880, now + 0.2);
-          gainNode.gain.setValueAtTime(0.12, now);
+          oscillator.frequency.setValueAtTime(440, now);
+          oscillator.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+          gainNode.gain.setValueAtTime(0.08, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          oscillator.start(now);
+          oscillator.stop(now + 0.3);
+          break;
+        case 'success':
+          oscillator.type = 'sine';
+          [523.25, 659.25, 783.99].forEach((freq, i) => {
+            oscillator.frequency.setValueAtTime(freq, now + i * 0.08);
+          });
+          gainNode.gain.setValueAtTime(0.08, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+          oscillator.start(now);
+          oscillator.stop(now + 0.35);
+          break;
+        case 'warning':
+          oscillator.type = 'triangle';
+          oscillator.frequency.setValueAtTime(350, now);
+          oscillator.frequency.setValueAtTime(280, now + 0.12);
+          gainNode.gain.setValueAtTime(0.1, now);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+          oscillator.start(now);
+          oscillator.stop(now + 0.3);
+          break;
+        case 'failure':
+          oscillator.type = 'sawtooth';
+          filter.frequency.value = 600;
+          oscillator.frequency.setValueAtTime(180, now);
+          oscillator.frequency.exponentialRampToValueAtTime(60, now + 0.4);
+          gainNode.gain.setValueAtTime(0.1, now);
           gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
           oscillator.start(now);
           oscillator.stop(now + 0.4);
           break;
-          
-        case 'success':
+        case 'unlock':
           oscillator.type = 'sine';
-          [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+          [523.25, 659.25, 783.99].forEach((freq, i) => {
             oscillator.frequency.setValueAtTime(freq, now + i * 0.1);
           });
           gainNode.gain.setValueAtTime(0.1, now);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
           oscillator.start(now);
-          oscillator.stop(now + 0.5);
+          oscillator.stop(now + 0.4);
           break;
-          
-        case 'warning':
-          oscillator.type = 'triangle';
-          oscillator.frequency.setValueAtTime(300, now);
-          oscillator.frequency.setValueAtTime(200, now + 0.15);
-          oscillator.frequency.setValueAtTime(300, now + 0.3);
-          gainNode.gain.setValueAtTime(0.12, now);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
-          oscillator.start(now);
-          oscillator.stop(now + 0.45);
-          break;
-          
-        case 'failure':
-          oscillator.type = 'sawtooth';
-          filter.frequency.value = 800;
-          oscillator.frequency.setValueAtTime(200, now);
-          oscillator.frequency.exponentialRampToValueAtTime(50, now + 0.6);
-          gainNode.gain.setValueAtTime(0.15, now);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
-          oscillator.start(now);
-          oscillator.stop(now + 0.6);
-          break;
-          
-        case 'unlock':
-          oscillator.type = 'sine';
-          [392, 523.25, 659.25].forEach((freq, i) => {
-            oscillator.frequency.setValueAtTime(freq, now + i * 0.12);
-          });
-          gainNode.gain.setValueAtTime(0.12, now);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-          oscillator.start(now);
-          oscillator.stop(now + 0.5);
-          break;
-          
-        case 'meltdown':
-          oscillator.type = 'sawtooth';
-          filter.frequency.value = 500;
-          oscillator.frequency.setValueAtTime(400, now);
-          oscillator.frequency.exponentialRampToValueAtTime(100, now + 0.3);
-          oscillator.frequency.setValueAtTime(350, now + 0.35);
-          oscillator.frequency.exponentialRampToValueAtTime(80, now + 0.7);
-          gainNode.gain.setValueAtTime(0.2, now);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
-          oscillator.start(now);
-          oscillator.stop(now + 0.8);
-          break;
-          
         default:
           break;
       }
@@ -599,87 +680,26 @@ const useAudio = () => {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PWA NOTIFICATION SYSTEM
+// APPLE-STYLE UI COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const usePWANotifications = () => {
-  const [permission, setPermission] = useState('default');
-  
-  useEffect(() => {
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
-    }
-  }, []);
-  
-  const requestPermission = useCallback(async () => {
-    if ('Notification' in window) {
-      const result = await Notification.requestPermission();
-      setPermission(result);
-      return result === 'granted';
-    }
-    return false;
-  }, []);
-  
-  const sendNotification = useCallback((title, options = {}) => {
-    if (permission === 'granted') {
-      const notification = new Notification(title, {
-        icon: '/icon-192.png',
-        badge: '/badge-72.png',
-        vibrate: [200, 100, 200],
-        ...options
-      });
-      
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
-      
-      return notification;
-    }
-    return null;
-  }, [permission]);
-  
-  return { permission, requestPermission, sendNotification };
-};
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// GLASS CARD COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const GlassCard = memo(({ 
-  children, 
-  className = '', 
-  glowColor = 'emerald',
-  intensity = 'normal',
-  hover = true,
-  onClick,
-  ...props 
-}) => {
-  const { theme, isDark } = useTheme();
-  
-  const intensityConfig = {
-    subtle: { blur: 'backdrop-blur-sm', opacity: isDark ? 0.02 : 0.6 },
-    normal: { blur: 'backdrop-blur-md', opacity: isDark ? 0.03 : 0.7 },
-    strong: { blur: 'backdrop-blur-lg', opacity: isDark ? 0.05 : 0.85 },
-  };
-  
-  const config = intensityConfig[intensity];
+const AppleCard = memo(({ children, className = '', padding = 'normal', hover = true, onClick, ...props }) => {
+  const { theme } = useTheme();
+  const paddingClasses = { none: '', small: 'p-4', normal: 'p-6', large: 'p-8' };
   
   return (
     <div 
       className={clsx(
-        'rounded-2xl border transition-all duration-500',
-        config.blur,
-        hover && 'hover:shadow-xl',
-        onClick && 'cursor-pointer',
+        'rounded-2xl backdrop-blur-xl transition-all duration-300',
+        paddingClasses[padding],
+        hover && 'hover:scale-[1.01]',
+        onClick && 'cursor-pointer active:scale-[0.99]',
         className
       )}
       style={{
-        background: isDark 
-          ? `rgba(255,255,255,${config.opacity})` 
-          : `rgba(255,255,255,${config.opacity})`,
-        borderColor: theme.border.primary,
-        boxShadow: hover ? `0 0 0 0 ${theme.glow[glowColor]}` : undefined,
+        background: theme.bg.card,
+        boxShadow: theme.shadow.md,
+        border: `0.5px solid ${theme.border.primary}`,
       }}
       onClick={onClick}
       {...props}
@@ -689,61 +709,7 @@ const GlassCard = memo(({
   );
 });
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// GRADIENT TEXT
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const GradientText = memo(({ children, className = '' }) => {
-  const { theme } = useTheme();
-  
-  return (
-    <span 
-      className={clsx('bg-clip-text text-transparent bg-gradient-to-r animate-gradient bg-[length:200%_auto]', className)}
-      style={{
-        backgroundImage: `linear-gradient(90deg, ${theme.accent.emerald}, ${theme.accent.cyan}, ${theme.accent.emerald})`
-      }}
-    >
-      {children}
-    </span>
-  );
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// GLITCH TEXT
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const GlitchText = memo(({ text, className = '', active = true }) => {
-  const [displayText, setDisplayText] = useState(text);
-  
-  useEffect(() => {
-    if (!active) {
-      setDisplayText(text);
-      return;
-    }
-    
-    const glitchChars = '!@#$%^&*()_+-=[]{}|;:,.<>?';
-    
-    const interval = setInterval(() => {
-      if (Math.random() > 0.92) {
-        const chars = text.split('');
-        const idx = Math.floor(Math.random() * chars.length);
-        chars[idx] = glitchChars[Math.floor(Math.random() * glitchChars.length)];
-        setDisplayText(chars.join(''));
-        setTimeout(() => setDisplayText(text), 50);
-      }
-    }, 100);
-    
-    return () => clearInterval(interval);
-  }, [text, active]);
-  
-  return <span className={className}>{displayText}</span>;
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// NEON RING
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const NeonRing = memo(({ progress, size = 120, strokeWidth = 4, colorKey = 'emerald' }) => {
+const AppleRing = memo(({ progress, size = 120, strokeWidth = 8, colorKey = 'blue' }) => {
   const { theme } = useTheme();
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
@@ -752,35 +718,167 @@ const NeonRing = memo(({ progress, size = 120, strokeWidth = 4, colorKey = 'emer
   
   return (
     <svg width={size} height={size} className="transform -rotate-90">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={theme.border.secondary}
-        strokeWidth={strokeWidth}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={radius}
-        fill="none"
-        stroke={color}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        style={{ 
-          filter: `drop-shadow(0 0 8px ${color})`,
-          transition: 'stroke-dashoffset 0.5s ease'
-        }}
-      />
+      <defs>
+        <linearGradient id={`ring-gradient-${colorKey}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style={{ stopColor: color, stopOpacity: 1 }} />
+          <stop offset="100%" style={{ stopColor: theme.accent.teal, stopOpacity: 1 }} />
+        </linearGradient>
+      </defs>
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={theme.border.secondary} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={`url(#ring-gradient-${colorKey})`} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 0.3s ease-out' }} />
     </svg>
   );
 });
 
+const NotificationToast = memo(({ notification, onDismiss }) => {
+  const { theme } = useTheme();
+  const config = NOTIFICATION_TYPES[notification.type] || NOTIFICATION_TYPES.info;
+  const Icon = config.icon;
+  const accentColor = theme.accent[config.colorKey];
+  const fillColor = theme.fill[config.colorKey];
+  const [isExiting, setIsExiting] = useState(false);
+  
+  const handleDismiss = () => {
+    setIsExiting(true);
+    setTimeout(() => onDismiss(notification.id), 280);
+  };
+  
+  return (
+    <div className={clsx('relative flex items-start gap-3 p-4 rounded-2xl backdrop-blur-xl transition-all duration-300 ease-out', isExiting ? 'opacity-0 translate-x-full scale-95' : 'opacity-100 translate-x-0 scale-100')} style={{ background: theme.bg.blur, boxShadow: theme.shadow.lg, border: `0.5px solid ${theme.border.primary}` }}>
+      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: fillColor }}>
+        <Icon className="w-4 h-4" style={{ color: accentColor }} />
+      </div>
+      <div className="flex-1 min-w-0 pt-0.5">
+        <div className="font-semibold text-[15px] leading-tight" style={{ color: theme.text.primary }}>{notification.title}</div>
+        {notification.message && <div className="text-[13px] mt-0.5 leading-snug" style={{ color: theme.text.tertiary }}>{notification.message}</div>}
+      </div>
+      <button onClick={handleDismiss} className="p-1 rounded-full transition-all duration-200 hover:scale-110 flex-shrink-0" style={{ color: theme.text.muted }}>
+        <X className="w-4 h-4" />
+      </button>
+      {notification.duration > 0 && (
+        <div className="absolute bottom-0 left-4 right-4 h-0.5 rounded-full overflow-hidden" style={{ background: theme.border.secondary }}>
+          <div className="h-full rounded-full animate-shrink" style={{ background: accentColor, animationDuration: `${notification.duration}ms` }} />
+        </div>
+      )}
+    </div>
+  );
+});
+
+const NotificationContainer = memo(() => {
+  const { notifications, removeNotification } = useNotifications();
+  
+  return (
+    <div className="fixed top-5 right-5 z-[100] flex flex-col gap-2.5 max-w-sm w-full pointer-events-none">
+      {notifications.map(notification => (
+        <div key={notification.id} className="pointer-events-auto animate-slideIn">
+          <NotificationToast notification={notification} onDismiss={removeNotification} />
+        </div>
+      ))}
+    </div>
+  );
+});
 // ═══════════════════════════════════════════════════════════════════════════════
-// THEME TOGGLE BUTTON
+// TIME PICKER COMPONENT - Apple Style
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const TimePicker = memo(({ value, onChange, presets, label, min = 60, max = 7200 }) => {
+  const { theme } = useTheme();
+  const [showCustom, setShowCustom] = useState(false);
+  const [customMinutes, setCustomMinutes] = useState(Math.floor(value / 60));
+  const [customSeconds, setCustomSeconds] = useState(value % 60);
+  
+  const handlePresetClick = (presetValue) => {
+    onChange(presetValue);
+    setShowCustom(false);
+  };
+  
+  const handleCustomConfirm = () => {
+    const totalSeconds = Math.max(min, Math.min(max, customMinutes * 60 + customSeconds));
+    onChange(totalSeconds);
+    setShowCustom(false);
+  };
+  
+  const isSelected = (presetValue) => value === presetValue;
+  
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] font-medium" style={{ color: theme.text.secondary }}>{label}</span>
+        <span className="text-[13px] font-semibold tabular-nums" style={{ color: theme.accent.blue }}>
+          {formatTimeVerbose(value)}
+        </span>
+      </div>
+      
+      {/* Presets */}
+      <div className="flex flex-wrap gap-2">
+        {presets.map((preset) => (
+          <button
+            key={preset.value}
+            onClick={() => handlePresetClick(preset.value)}
+            className="px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{
+              background: isSelected(preset.value) ? theme.accent.blue : theme.bg.tertiary,
+              color: isSelected(preset.value) ? '#FFFFFF' : theme.text.secondary,
+            }}
+          >
+            {preset.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setShowCustom(!showCustom)}
+          className="px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+          style={{
+            background: showCustom ? theme.fill.blue : theme.bg.tertiary,
+            color: showCustom ? theme.accent.blue : theme.text.tertiary,
+            border: showCustom ? `1px solid ${theme.accent.blue}` : '1px solid transparent',
+          }}
+        >
+          自定义
+        </button>
+      </div>
+      
+      {/* Custom Input */}
+      {showCustom && (
+        <div className="flex items-center gap-3 p-4 rounded-xl animate-fadeIn" style={{ background: theme.bg.tertiary }}>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={customMinutes}
+              onChange={(e) => setCustomMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-16 px-3 py-2 rounded-lg text-center text-[15px] font-semibold outline-none"
+              style={{ background: theme.bg.secondary, color: theme.text.primary, border: `1px solid ${theme.border.focus}` }}
+              min="0"
+              max="120"
+            />
+            <span className="text-[13px]" style={{ color: theme.text.tertiary }}>分</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={customSeconds}
+              onChange={(e) => setCustomSeconds(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))}
+              className="w-16 px-3 py-2 rounded-lg text-center text-[15px] font-semibold outline-none"
+              style={{ background: theme.bg.secondary, color: theme.text.primary, border: `1px solid ${theme.border.focus}` }}
+              min="0"
+              max="59"
+            />
+            <span className="text-[13px]" style={{ color: theme.text.tertiary }}>秒</span>
+          </div>
+          <button
+            onClick={handleCustomConfirm}
+            className="px-4 py-2 rounded-lg text-[13px] font-semibold transition-all hover:scale-105 active:scale-95"
+            style={{ background: theme.accent.blue, color: '#FFFFFF' }}
+          >
+            确认
+          </button>
+        </div>
+      )}
+    </div>
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// THEME TOGGLE - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const ThemeToggle = memo(() => {
@@ -791,80 +889,30 @@ const ThemeToggle = memo(() => {
     <div className="relative">
       <button
         onClick={() => setShowMenu(!showMenu)}
-        className="p-3 rounded-xl border transition-all duration-300"
-        style={{
-          background: theme.bg.card,
-          borderColor: theme.border.primary,
-          color: theme.text.secondary,
-        }}
+        className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95"
+        style={{ background: theme.bg.elevated, boxShadow: theme.shadow.sm, border: `0.5px solid ${theme.border.primary}` }}
       >
-        {isDark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+        {isDark ? <Moon className="w-5 h-5" style={{ color: theme.accent.blue }} /> : <Sun className="w-5 h-5" style={{ color: theme.accent.orange }} />}
       </button>
       
       {showMenu && (
         <>
-          <div 
-            className="fixed inset-0 z-40" 
-            onClick={() => setShowMenu(false)} 
-          />
-          <div 
-            className="absolute right-0 top-full mt-2 p-2 rounded-xl border z-50 min-w-[200px] animate-fadeIn"
-            style={{
-              background: isDark ? 'rgba(20,20,30,0.95)' : 'rgba(255,255,255,0.95)',
-              borderColor: theme.border.primary,
-              backdropFilter: 'blur(20px)',
-            }}
-          >
-            {/* Theme options */}
-            <button
-              onClick={() => { setAutoTheme(false); toggleTheme(); setShowMenu(false); }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors"
-              style={{ color: theme.text.secondary }}
-            >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              <span className="text-sm">切换到{isDark ? '浅色' : '深色'}模式</span>
+          <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+          <div className="absolute right-0 top-full mt-2 p-2 rounded-2xl z-50 min-w-[200px] backdrop-blur-xl animate-scaleIn origin-top-right" style={{ background: theme.bg.blur, boxShadow: theme.shadow.xl, border: `0.5px solid ${theme.border.primary}` }}>
+            <button onClick={() => { setAutoTheme(false); toggleTheme(); setShowMenu(false); }} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200" style={{ color: theme.text.secondary }}>
+              {isDark ? <Sun className="w-5 h-5" style={{ color: theme.accent.orange }} /> : <Moon className="w-5 h-5" style={{ color: theme.accent.blue }} />}
+              <span className="text-[15px] font-medium">切换到{isDark ? '浅色' : '深色'}</span>
             </button>
-            
-            <div 
-              className="my-2 h-px"
-              style={{ background: theme.border.secondary }}
-            />
-            
-            {/* Auto theme toggle */}
-            <button
-              onClick={() => { setAutoTheme(!autoTheme); setShowMenu(false); }}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-colors"
-              style={{ color: theme.text.secondary }}
-            >
+            <div className="my-1.5 mx-3 h-px" style={{ background: theme.border.secondary }} />
+            <button onClick={() => { setAutoTheme(!autoTheme); setShowMenu(false); }} className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200" style={{ color: theme.text.secondary }}>
               <div className="flex items-center gap-3">
-                <Monitor className="w-4 h-4" />
-                <span className="text-sm">自动切换</span>
+                <Monitor className="w-5 h-5" style={{ color: theme.text.tertiary }} />
+                <span className="text-[15px] font-medium">自动切换</span>
               </div>
-              <div 
-                className="w-10 h-5 rounded-full transition-colors relative"
-                style={{ 
-                  background: autoTheme ? theme.accent.emerald : theme.border.primary 
-                }}
-              >
-                <div 
-                  className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
-                  style={{ 
-                    transform: autoTheme ? 'translateX(22px)' : 'translateX(2px)' 
-                  }}
-                />
+              <div className="w-12 h-7 rounded-full transition-all duration-300 relative p-0.5" style={{ background: autoTheme ? theme.accent.blue : theme.border.primary }}>
+                <div className="w-6 h-6 rounded-full bg-white transition-transform duration-300" style={{ transform: autoTheme ? 'translateX(20px)' : 'translateX(0)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
               </div>
             </button>
-            
-            {autoTheme && (
-              <div 
-                className="px-3 py-2 text-xs"
-                style={{ color: theme.text.muted }}
-              >
-                {CONFIG.DAY_START_HOUR}:00 - {CONFIG.NIGHT_START_HOUR}:00 浅色
-                <br />
-                {CONFIG.NIGHT_START_HOUR}:00 - {CONFIG.DAY_START_HOUR}:00 深色
-              </div>
-            )}
           </div>
         </>
       )}
@@ -873,352 +921,230 @@ const ThemeToggle = memo(() => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CHAIN COUNTER
+// CHAIN COUNTER - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const ChainCounter = memo(({ current, longest, purity, totalFocus }) => {
-  const { theme, isDark } = useTheme();
+  const { theme } = useTheme();
   const progress = longest > 0 ? Math.min(100, (current / longest) * 100) : 0;
   const toRecord = longest - current;
-  
-  const purityColor = purity > 70 ? theme.accent.emerald : purity > 40 ? theme.accent.amber : theme.accent.rose;
+  const purityColor = purity > 70 ? theme.accent.green : purity > 40 ? theme.accent.orange : theme.accent.red;
   
   return (
-    <GlassCard className="p-6" glowColor="emerald">
-      <div className="flex items-center justify-between mb-6">
+    <AppleCard>
+      <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: `${theme.accent.emerald}15` }}
-          >
-            <Activity className="w-5 h-5" style={{ color: theme.accent.emerald }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: theme.fill.blue }}>
+            <Activity className="w-5 h-5" style={{ color: theme.accent.blue }} />
           </div>
           <div>
-            <h3 className="text-sm font-medium" style={{ color: theme.text.primary }}>
-              Chain Status
-            </h3>
-            <p className="text-xs" style={{ color: theme.text.muted }}>连续专注记录</p>
+            <h3 className="text-[15px] font-semibold" style={{ color: theme.text.primary }}>专注链</h3>
+            <p className="text-[12px]" style={{ color: theme.text.tertiary }}>Chain Status</p>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-3xl font-light tracking-tight" style={{ color: theme.text.primary }}>
-            #{current}
-          </div>
-          <div className="text-xs" style={{ color: theme.text.muted }}>当前链条</div>
+          <div className="text-4xl font-light tracking-tight tabular-nums" style={{ color: theme.accent.blue }}>{current}</div>
+          <div className="text-[11px] font-medium" style={{ color: theme.text.tertiary }}>当前连击</div>
         </div>
       </div>
       
-      {/* Progress */}
-      <div className="mb-6">
-        <div className="flex justify-between text-xs mb-2">
-          <span style={{ color: theme.text.muted }}>距离打破记录</span>
-          <span style={{ color: theme.accent.emerald }}>
-            {toRecord > 0 ? `还差 ${toRecord} 次` : '🏆 新纪录！'}
-          </span>
+      <div className="mb-5">
+        <div className="flex justify-between text-[12px] mb-2">
+          <span style={{ color: theme.text.tertiary }}>距离打破记录</span>
+          <span style={{ color: theme.accent.blue }}>{toRecord > 0 ? `还差 ${toRecord} 次` : '🏆 新纪录！'}</span>
         </div>
-        <div 
-          className="h-1.5 rounded-full overflow-hidden"
-          style={{ background: theme.border.secondary }}
-        >
-          <div 
-            className="h-full rounded-full transition-all duration-700"
-            style={{ 
-              width: `${progress}%`,
-              background: `linear-gradient(90deg, ${theme.accent.emerald}, ${theme.accent.cyan})`
-            }}
-          />
+        <div className="h-2 rounded-full overflow-hidden" style={{ background: theme.border.secondary }}>
+          <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${theme.accent.blue}, ${theme.accent.teal})` }} />
         </div>
       </div>
       
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-3">
         {[
           { label: '最长记录', value: longest, color: theme.text.primary },
           { label: '纯净度', value: `${purity}%`, color: purityColor },
           { label: '总专注', value: totalFocus, color: theme.text.primary },
         ].map(stat => (
-          <div 
-            key={stat.label}
-            className="text-center p-3 rounded-xl"
-            style={{ background: theme.bg.card }}
-          >
-            <div className="text-xl font-light" style={{ color: stat.color }}>{stat.value}</div>
-            <div className="text-[10px] uppercase tracking-wider" style={{ color: theme.text.muted }}>
-              {stat.label}
-            </div>
+          <div key={stat.label} className="text-center p-3 rounded-xl" style={{ background: theme.bg.tertiary }}>
+            <div className="text-xl font-semibold tabular-nums" style={{ color: stat.color }}>{stat.value}</div>
+            <div className="text-[10px] font-medium uppercase tracking-wide" style={{ color: theme.text.muted }}>{stat.label}</div>
           </div>
         ))}
       </div>
-    </GlassCard>
+    </AppleCard>
   );
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SYSTEM STATUS
+// SYSTEM STATUS - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const SystemStatus = memo(({ time, runDays, todayCompleted, streak }) => {
   const { theme } = useTheme();
   
   return (
-    <GlassCard className="p-6" glowColor="cyan">
-      <div className="flex items-center gap-3 mb-6">
-        <div 
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: `${theme.accent.cyan}15` }}
-        >
-          <Terminal className="w-5 h-5" style={{ color: theme.accent.cyan }} />
+    <AppleCard>
+      <div className="flex items-center gap-3 mb-5">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: theme.fill.indigo }}>
+          <Clock className="w-5 h-5" style={{ color: theme.accent.indigo }} />
         </div>
         <div>
-          <h3 className="text-sm font-medium" style={{ color: theme.text.primary }}>
-            System Status
-          </h3>
-          <p className="text-xs" style={{ color: theme.text.muted }}>系统运行状态</p>
+          <h3 className="text-[15px] font-semibold" style={{ color: theme.text.primary }}>系统状态</h3>
+          <p className="text-[12px]" style={{ color: theme.text.tertiary }}>System Status</p>
         </div>
       </div>
       
-      {/* Time */}
-      <div className="text-center mb-6">
-        <div 
-          className="text-4xl font-extralight tracking-wider font-mono"
-          style={{ color: theme.accent.cyan }}
-        >
-          {time.toLocaleTimeString('en-US', { hour12: false })}
+      <div className="text-center mb-5 py-4">
+        <div className="text-5xl font-extralight tracking-tight tabular-nums" style={{ color: theme.accent.blue }}>
+          {time.toLocaleTimeString('zh-CN', { hour12: false })}
         </div>
-        <div className="text-xs mt-1" style={{ color: theme.text.muted }}>
+        <div className="text-[13px] mt-2" style={{ color: theme.text.tertiary }}>
           {time.toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' })}
         </div>
       </div>
       
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
           { icon: Calendar, label: '运行天数', value: runDays, color: theme.text.tertiary },
-          { icon: Check, label: '今日完成', value: todayCompleted, color: theme.accent.emerald },
-          { icon: Flame, label: '连续天数', value: streak, color: theme.accent.amber },
+          { icon: Check, label: '今日完成', value: todayCompleted, color: theme.accent.green },
+          { icon: Flame, label: '连续天数', value: streak, color: theme.accent.orange },
         ].map(stat => (
-          <div 
-            key={stat.label}
-            className="text-center p-2 rounded-lg"
-            style={{ background: theme.bg.card }}
-          >
-            <stat.icon className="w-4 h-4 mx-auto mb-1" style={{ color: stat.color }} />
-            <div className="text-lg font-light" style={{ color: theme.text.primary }}>{stat.value}</div>
-            <div className="text-[9px] uppercase" style={{ color: theme.text.muted }}>{stat.label}</div>
+          <div key={stat.label} className="text-center p-3 rounded-xl" style={{ background: theme.bg.tertiary }}>
+            <stat.icon className="w-4 h-4 mx-auto mb-1.5" style={{ color: stat.color }} />
+            <div className="text-lg font-semibold tabular-nums" style={{ color: theme.text.primary }}>{stat.value}</div>
+            <div className="text-[9px] font-medium uppercase tracking-wide" style={{ color: theme.text.muted }}>{stat.label}</div>
           </div>
         ))}
       </div>
-    </GlassCard>
+    </AppleCard>
   );
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PRECEDENT DATABASE
+// PRECEDENT DATABASE - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const PrecedentDatabase = memo(({ exceptions, failures, purity }) => {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(false);
-  
-  const totalUsage = useMemo(() => 
-    exceptions.reduce((sum, ex) => sum + (ex.usageCount || 0), 0),
-    [exceptions]
-  );
-  
-  const purityColor = purity > 70 ? theme.accent.emerald : purity > 40 ? theme.accent.amber : theme.accent.rose;
+  const totalUsage = useMemo(() => exceptions.reduce((sum, ex) => sum + (ex.usageCount || 0), 0), [exceptions]);
+  const purityColor = purity > 70 ? theme.accent.green : purity > 40 ? theme.accent.orange : theme.accent.red;
   
   return (
-    <GlassCard className="p-6" glowColor="amber">
-      <button 
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between"
-      >
+    <AppleCard padding="none">
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between p-6">
         <div className="flex items-center gap-3">
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: `${theme.accent.amber}15` }}
-          >
-            <History className="w-5 h-5" style={{ color: theme.accent.amber }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: theme.fill.orange }}>
+            <History className="w-5 h-5" style={{ color: theme.accent.orange }} />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-medium" style={{ color: theme.text.primary }}>
-              Precedent Database
-            </h3>
-            <p className="text-xs" style={{ color: theme.text.muted }}>判例法数据库</p>
+            <h3 className="text-[15px] font-semibold" style={{ color: theme.text.primary }}>判例数据库</h3>
+            <p className="text-[12px]" style={{ color: theme.text.tertiary }}>Precedent Database</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-sm" style={{ color: theme.accent.amber }}>{exceptions.length} 例外</div>
-            <div className="text-xs" style={{ color: theme.text.muted }}>{failures.length} 失败</div>
+            <div className="text-[14px] font-semibold" style={{ color: theme.accent.orange }}>{exceptions.length} 例外</div>
+            <div className="text-[12px]" style={{ color: theme.text.muted }}>{failures.length} 失败</div>
           </div>
-          <ChevronDown 
-            className={clsx('w-5 h-5 transition-transform duration-300', expanded && 'rotate-180')}
-            style={{ color: theme.text.muted }}
-          />
+          <ChevronDown className={clsx('w-5 h-5 transition-transform duration-300', expanded && 'rotate-180')} style={{ color: theme.text.muted }} />
         </div>
       </button>
       
       {expanded && (
-        <div className="mt-6 space-y-4 animate-fadeIn">
-          {/* Purity meter */}
-          <div 
-            className="p-4 rounded-xl border"
-            style={{ background: theme.bg.card, borderColor: theme.border.secondary }}
-          >
+        <div className="px-6 pb-6 space-y-4 animate-fadeIn">
+          <div className="p-4 rounded-xl" style={{ background: theme.bg.tertiary }}>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs" style={{ color: theme.text.muted }}>系统纯净度</span>
-              <span className="text-sm font-medium" style={{ color: purityColor }}>
-                {purity}%
-              </span>
+              <span className="text-[13px] font-medium" style={{ color: theme.text.secondary }}>系统纯净度</span>
+              <span className="text-[15px] font-semibold" style={{ color: purityColor }}>{purity}%</span>
             </div>
-            <div 
-              className="h-2 rounded-full overflow-hidden"
-              style={{ background: theme.border.secondary }}
-            >
-              <div 
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${purity}%`, background: purityColor }}
-              />
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: theme.border.secondary }}>
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${purity}%`, background: purityColor }} />
             </div>
           </div>
           
-          {/* Exceptions */}
           {exceptions.length > 0 && (
             <div>
-              <h4 className="text-xs uppercase tracking-wider mb-3" style={{ color: theme.text.muted }}>
-                合法例外
-              </h4>
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: theme.text.muted }}>合法例外</h4>
               <div className="space-y-2">
                 {exceptions.map((ex, idx) => (
-                  <div 
-                    key={idx}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                    style={{ 
-                      background: `${theme.accent.amber}08`,
-                      borderColor: `${theme.accent.amber}20`
-                    }}
-                  >
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-xl" style={{ background: theme.fill.orange }}>
                     <div className="flex items-center gap-3">
-                      <AlertCircle className="w-4 h-4" style={{ color: `${theme.accent.amber}90` }} />
+                      <AlertCircle className="w-4 h-4" style={{ color: theme.accent.orange }} />
                       <div>
-                        <div className="text-sm" style={{ color: theme.text.secondary }}>{ex.name}</div>
-                        <div className="text-[10px]" style={{ color: theme.text.muted }}>
-                          创建于 #{ex.chainAtCreation} · 使用 {ex.usageCount || 0} 次
-                        </div>
+                        <div className="text-[14px] font-medium" style={{ color: theme.text.primary }}>{ex.name}</div>
+                        <div className="text-[11px]" style={{ color: theme.text.tertiary }}>创建于 #{ex.chainAtCreation} · 使用 {ex.usageCount || 0} 次</div>
                       </div>
                     </div>
-                    <div className="text-xs" style={{ color: theme.text.muted }}>{formatDate(ex.createdAt)}</div>
+                    <div className="text-[12px]" style={{ color: theme.text.muted }}>{formatDate(ex.createdAt)}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
           
-          {/* Failures */}
           {failures.length > 0 && (
             <div>
-              <h4 className="text-xs uppercase tracking-wider mb-3" style={{ color: theme.text.muted }}>
-                失败记录
-              </h4>
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: theme.text.muted }}>失败记录</h4>
               <div className="space-y-2">
                 {failures.slice(-5).reverse().map((fail, idx) => (
-                  <div 
-                    key={idx}
-                    className="flex items-center justify-between p-3 rounded-lg border"
-                    style={{ 
-                      background: `${theme.accent.rose}08`,
-                      borderColor: `${theme.accent.rose}20`
-                    }}
-                  >
+                  <div key={idx} className="flex items-center justify-between p-3 rounded-xl" style={{ background: theme.fill.red }}>
                     <div className="flex items-center gap-3">
-                      <XCircle className="w-4 h-4" style={{ color: `${theme.accent.rose}90` }} />
+                      <XCircle className="w-4 h-4" style={{ color: theme.accent.red }} />
                       <div>
-                        <div className="text-sm" style={{ color: theme.text.secondary }}>
-                          链条 #{fail.chainBroken} 断裂
-                        </div>
-                        <div className="text-[10px]" style={{ color: theme.text.muted }}>{fail.reason}</div>
+                        <div className="text-[14px] font-medium" style={{ color: theme.text.primary }}>链条 #{fail.chainBroken} 断裂</div>
+                        <div className="text-[11px]" style={{ color: theme.text.tertiary }}>{fail.reason}</div>
                       </div>
                     </div>
-                    <div className="text-xs" style={{ color: theme.text.muted }}>{formatDate(fail.date)}</div>
+                    <div className="text-[12px]" style={{ color: theme.text.muted }}>{formatDate(fail.date)}</div>
                   </div>
                 ))}
               </div>
             </div>
           )}
           
-          {/* Summary */}
-          <div 
-            className="grid grid-cols-3 gap-3 pt-4 border-t"
-            style={{ borderColor: theme.border.secondary }}
-          >
+          <div className="grid grid-cols-3 gap-3 pt-4 border-t" style={{ borderColor: theme.border.secondary }}>
             {[
-              { label: '例外总数', value: exceptions.length, color: theme.accent.amber },
-              { label: '失败次数', value: failures.length, color: theme.accent.rose },
-              { label: '例外使用', value: totalUsage, color: theme.accent.cyan },
+              { label: '例外总数', value: exceptions.length, color: theme.accent.orange },
+              { label: '失败次数', value: failures.length, color: theme.accent.red },
+              { label: '例外使用', value: totalUsage, color: theme.accent.blue },
             ].map(stat => (
               <div key={stat.label} className="text-center">
-                <div className="text-lg font-light" style={{ color: stat.color }}>{stat.value}</div>
-                <div className="text-[9px] uppercase" style={{ color: theme.text.muted }}>{stat.label}</div>
+                <div className="text-xl font-semibold" style={{ color: stat.color }}>{stat.value}</div>
+                <div className="text-[10px] font-medium uppercase" style={{ color: theme.text.muted }}>{stat.label}</div>
               </div>
             ))}
           </div>
         </div>
       )}
-    </GlassCard>
+    </AppleCard>
   );
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ACHIEVEMENTS PANEL
+// ACHIEVEMENTS PANEL - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const AchievementBadge = memo(({ achievement, unlocked, unlockedAt }) => {
   const { theme } = useTheme();
   const config = ACHIEVEMENTS[achievement];
   if (!config) return null;
-  
   const tierConfig = TIER_CONFIG[config.tier];
   const color = theme.accent[tierConfig.colorKey];
   const Icon = config.icon;
   
   return (
-    <div 
-      className={clsx(
-        'relative p-4 rounded-xl border transition-all duration-300',
-        !unlocked && 'opacity-50'
-      )}
-      style={{
-        background: unlocked ? `${color}10` : theme.bg.card,
-        borderColor: unlocked ? `${color}30` : theme.border.secondary,
-        boxShadow: unlocked ? `0 4px 20px ${color}20` : undefined,
-      }}
-    >
+    <div className={clsx('relative p-4 rounded-xl transition-all duration-300', !unlocked && 'opacity-40')} style={{ background: unlocked ? theme.fill[tierConfig.colorKey] : theme.bg.tertiary, boxShadow: unlocked ? theme.shadow.sm : 'none' }}>
       <div className="flex items-center gap-3">
-        <div 
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ background: unlocked ? `${color}20` : theme.border.secondary }}
-        >
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: unlocked ? `${color}25` : theme.border.secondary }}>
           <Icon className="w-5 h-5" style={{ color: unlocked ? color : theme.text.muted }} />
         </div>
         <div className="flex-1">
-          <div 
-            className="text-sm font-medium"
-            style={{ color: unlocked ? theme.text.primary : theme.text.tertiary }}
-          >
-            {config.name}
-          </div>
-          <div className="text-[10px]" style={{ color: theme.text.muted }}>{config.desc}</div>
+          <div className="text-[14px] font-semibold" style={{ color: unlocked ? theme.text.primary : theme.text.tertiary }}>{config.name}</div>
+          <div className="text-[11px]" style={{ color: theme.text.muted }}>{config.desc}</div>
         </div>
-        {unlocked && (
-          <CheckCircle2 className="w-5 h-5" style={{ color }} />
-        )}
+        {unlocked && <CheckCircle2 className="w-5 h-5" style={{ color }} />}
       </div>
-      {unlocked && unlockedAt && (
-        <div className="text-[9px] mt-2" style={{ color: theme.text.muted }}>
-          解锁于 {formatDate(unlockedAt)}
-        </div>
-      )}
+      {unlocked && unlockedAt && <div className="text-[10px] mt-2 ml-13" style={{ color: theme.text.muted }}>解锁于 {formatDate(unlockedAt)}</div>}
     </div>
   );
 });
@@ -1230,125 +1156,181 @@ const AchievementsPanel = memo(({ unlockedAchievements }) => {
   const totalCount = Object.keys(ACHIEVEMENTS).length;
   
   return (
-    <GlassCard className="p-6" glowColor="purple">
-      <button 
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between"
-      >
+    <AppleCard padding="none">
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between p-6">
         <div className="flex items-center gap-3">
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: `${theme.accent.purple}15` }}
-          >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: theme.fill.purple }}>
             <Award className="w-5 h-5" style={{ color: theme.accent.purple }} />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-medium" style={{ color: theme.text.primary }}>Achievements</h3>
-            <p className="text-xs" style={{ color: theme.text.muted }}>成就系统</p>
+            <h3 className="text-[15px] font-semibold" style={{ color: theme.text.primary }}>成就</h3>
+            <p className="text-[12px]" style={{ color: theme.text.tertiary }}>Achievements</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-sm" style={{ color: theme.accent.purple }}>{unlockedCount}/{totalCount}</div>
-          <ChevronDown 
-            className={clsx('w-5 h-5 transition-transform duration-300', expanded && 'rotate-180')}
-            style={{ color: theme.text.muted }}
-          />
+          <div className="text-[14px] font-semibold" style={{ color: theme.accent.purple }}>{unlockedCount}/{totalCount}</div>
+          <ChevronDown className={clsx('w-5 h-5 transition-transform duration-300', expanded && 'rotate-180')} style={{ color: theme.text.muted }} />
         </div>
       </button>
       
       {expanded && (
-        <div className="mt-6 space-y-3 animate-fadeIn">
+        <div className="px-6 pb-6 space-y-2 animate-fadeIn">
           {Object.entries(ACHIEVEMENTS).map(([key]) => (
-            <AchievementBadge 
-              key={key}
-              achievement={key}
-              unlocked={!!unlockedAchievements[key]}
-              unlockedAt={unlockedAchievements[key]?.unlockedAt}
-            />
+            <AchievementBadge key={key} achievement={key} unlocked={!!unlockedAchievements[key]} unlockedAt={unlockedAchievements[key]?.unlockedAt} />
           ))}
         </div>
       )}
-    </GlassCard>
+    </AppleCard>
   );
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SACRED SWITCH
+// SETTINGS PANEL - Apple Style (with Custom Time Settings)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const SacredSwitch = memo(({ onActivate, disabled, currentChain, exceptions }) => {
+const SettingsPanel = memo(({ audioEnabled, onAudioToggle, notificationPermission, onRequestNotification }) => {
   const { theme } = useTheme();
-  const [isHovered, setIsHovered] = useState(false);
+  const { config, updateConfig, resetConfig } = useConfig();
+  const [expanded, setExpanded] = useState(false);
+  const [showTimeSettings, setShowTimeSettings] = useState(false);
+  
+  return (
+    <AppleCard padding="none">
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between p-5">
+        <div className="flex items-center gap-2">
+          <Settings className="w-4 h-4" style={{ color: theme.text.muted }} />
+          <span className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: theme.text.muted }}>设置</span>
+        </div>
+        <ChevronDown className={clsx('w-4 h-4 transition-transform duration-300', expanded && 'rotate-180')} style={{ color: theme.text.muted }} />
+      </button>
+      
+      {expanded && (
+        <div className="px-5 pb-5 space-y-3 animate-fadeIn">
+          {/* Audio Toggle */}
+          <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: theme.bg.tertiary }}>
+            <div className="flex items-center gap-3">
+              {audioEnabled ? <Volume2 className="w-5 h-5" style={{ color: theme.accent.blue }} /> : <VolumeX className="w-5 h-5" style={{ color: theme.text.muted }} />}
+              <span className="text-[15px] font-medium" style={{ color: theme.text.secondary }}>音效</span>
+            </div>
+            <button onClick={onAudioToggle} className="w-12 h-7 rounded-full transition-all duration-300 relative p-0.5" style={{ background: audioEnabled ? theme.accent.blue : theme.border.primary }}>
+              <div className="w-6 h-6 rounded-full bg-white transition-transform duration-300" style={{ transform: audioEnabled ? 'translateX(20px)' : 'translateX(0)', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
+            </button>
+          </div>
+          
+          {/* Notifications */}
+          <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: theme.bg.tertiary }}>
+            <div className="flex items-center gap-3">
+              <Bell className="w-5 h-5" style={{ color: notificationPermission === 'granted' ? theme.accent.blue : theme.text.muted }} />
+              <span className="text-[15px] font-medium" style={{ color: theme.text.secondary }}>通知</span>
+            </div>
+            {notificationPermission === 'granted' ? (
+              <span className="text-[13px] font-medium px-3 py-1 rounded-full" style={{ background: theme.fill.green, color: theme.accent.green }}>已启用</span>
+            ) : (
+              <button onClick={onRequestNotification} className="text-[13px] font-semibold px-3 py-1 rounded-full transition-all hover:scale-105" style={{ background: theme.fill.blue, color: theme.accent.blue }}>启用</button>
+            )}
+          </div>
+          
+          {/* Time Settings Toggle */}
+          <button onClick={() => setShowTimeSettings(!showTimeSettings)} className="w-full flex items-center justify-between p-4 rounded-xl transition-all" style={{ background: theme.bg.tertiary }}>
+            <div className="flex items-center gap-3">
+              <Timer className="w-5 h-5" style={{ color: theme.accent.indigo }} />
+              <span className="text-[15px] font-medium" style={{ color: theme.text.secondary }}>时间设置</span>
+            </div>
+            <ChevronRight className={clsx('w-5 h-5 transition-transform duration-200', showTimeSettings && 'rotate-90')} style={{ color: theme.text.muted }} />
+          </button>
+          
+          {/* Time Settings Panel */}
+          {showTimeSettings && (
+            <div className="p-4 rounded-xl space-y-5 animate-fadeIn" style={{ background: theme.fill.indigo }}>
+              <TimePicker
+                label="专注时长"
+                value={config.FOCUS_TIME}
+                onChange={(v) => updateConfig('FOCUS_TIME', v)}
+                presets={TIME_PRESETS.focus}
+                min={60}
+                max={7200}
+              />
+              
+              <div className="h-px" style={{ background: theme.border.secondary }} />
+              
+              <TimePicker
+                label="休息时长"
+                value={config.BREAK_TIME}
+                onChange={(v) => updateConfig('BREAK_TIME', v)}
+                presets={TIME_PRESETS.break}
+                min={60}
+                max={1800}
+              />
+              
+              <div className="h-px" style={{ background: theme.border.secondary }} />
+              
+              <TimePicker
+                label="预约启动时长"
+                value={config.DELAY_PROTOCOL_TIME}
+                onChange={(v) => updateConfig('DELAY_PROTOCOL_TIME', v)}
+                presets={TIME_PRESETS.delay}
+                min={60}
+                max={3600}
+              />
+              
+              <div className="h-px" style={{ background: theme.border.secondary }} />
+              
+              {/* Reset Button */}
+              <button onClick={resetConfig} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]" style={{ background: theme.bg.secondary, color: theme.text.tertiary }}>
+                <RotateCcw className="w-4 h-4" />
+                <span className="text-[13px] font-medium">恢复默认设置</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </AppleCard>
+  );
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SACRED SWITCH (Main Focus Button) - Apple Style
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SacredSwitch = memo(({ onActivate, disabled, currentChain, exceptions, focusTime }) => {
+  const { theme } = useTheme();
+  const [isPressed, setIsPressed] = useState(false);
   
   return (
     <div className="relative">
-      {/* Glow */}
-      <div 
-        className={clsx(
-          'absolute inset-0 rounded-2xl transition-all duration-700 blur-xl',
-          isHovered && !disabled ? 'scale-105' : ''
-        )}
-        style={{
-          background: isHovered && !disabled ? theme.glow.emerald : 'transparent'
-        }}
-      />
-      
       <button
         onClick={onActivate}
         disabled={disabled}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        className={clsx(
-          'relative w-full py-8 px-6 rounded-2xl font-medium transition-all duration-500',
-          'border-2 backdrop-blur-sm',
-          disabled && 'cursor-not-allowed'
-        )}
+        onMouseDown={() => setIsPressed(true)}
+        onMouseUp={() => setIsPressed(false)}
+        onMouseLeave={() => setIsPressed(false)}
+        onTouchStart={() => setIsPressed(true)}
+        onTouchEnd={() => setIsPressed(false)}
+        className={clsx('relative w-full py-8 px-6 rounded-2xl font-semibold transition-all duration-300 backdrop-blur-xl', disabled ? 'cursor-not-allowed' : 'cursor-pointer', !disabled && !isPressed && 'hover:scale-[1.02]', isPressed && 'scale-[0.98]')}
         style={{
-          background: disabled ? theme.bg.card : `${theme.accent.emerald}10`,
-          borderColor: disabled ? theme.border.secondary : `${theme.accent.emerald}40`,
-          color: disabled ? theme.text.muted : theme.accent.emerald,
+          background: disabled ? theme.bg.tertiary : `linear-gradient(135deg, ${theme.accent.blue}, ${theme.accent.indigo})`,
+          boxShadow: disabled ? 'none' : theme.shadow.glow,
+          color: disabled ? theme.text.muted : '#FFFFFF',
         }}
       >
         <div className="flex flex-col items-center gap-4">
-          <div 
-            className="w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500"
-            style={{ 
-              background: disabled ? theme.border.secondary : `${theme.accent.emerald}20`,
-              transform: isHovered && !disabled ? 'scale(1.1)' : 'scale(1)'
-            }}
-          >
-            <Crosshair 
-              className="w-8 h-8" 
-              style={{ color: disabled ? theme.text.muted : theme.accent.emerald }}
-            />
+          <div className="w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300" style={{ background: disabled ? theme.border.secondary : 'rgba(255,255,255,0.2)', transform: isPressed ? 'scale(0.95)' : 'scale(1)' }}>
+            <Play className="w-8 h-8 ml-1" style={{ color: disabled ? theme.text.muted : '#FFFFFF' }} fill={disabled ? 'transparent' : 'currentColor'} />
           </div>
           
           <div className="text-center">
-            <div className="text-xl tracking-wide mb-1">启动专注模式</div>
-            <div style={{ color: disabled ? theme.text.muted : `${theme.accent.emerald}90` }}>
-              Chain #{currentChain + 1}
+            <div className="text-xl tracking-wide mb-1">开始专注</div>
+            <div className="text-[14px] opacity-80">
+              第 {currentChain + 1} 次 · {formatTimeVerbose(focusTime)}
             </div>
           </div>
           
           {exceptions.length > 0 && !disabled && (
-            <div className="flex flex-wrap gap-2 justify-center">
+            <div className="flex flex-wrap gap-2 justify-center mt-2">
               {exceptions.slice(0, 3).map((ex, idx) => (
-                <span 
-                  key={idx}
-                  className="px-2 py-1 rounded-lg text-[10px]"
-                  style={{ background: theme.border.secondary, color: theme.text.muted }}
-                >
-                  {ex.name}
-                </span>
+                <span key={idx} className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>{ex.name}</span>
               ))}
-              {exceptions.length > 3 && (
-                <span 
-                  className="px-2 py-1 rounded-lg text-[10px]"
-                  style={{ background: theme.border.secondary, color: theme.text.muted }}
-                >
-                  +{exceptions.length - 3}
-                </span>
-              )}
+              {exceptions.length > 3 && <span className="px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: 'rgba(255,255,255,0.2)', color: '#FFFFFF' }}>+{exceptions.length - 3}</span>}
             </div>
           )}
         </div>
@@ -1358,71 +1340,36 @@ const SacredSwitch = memo(({ onActivate, disabled, currentChain, exceptions }) =
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// DELAY PROTOCOL
+// DELAY PROTOCOL - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const DelayProtocol = memo(({ onLaunch, onActivate, active, timeRemaining, disabled }) => {
+const DelayProtocol = memo(({ onLaunch, onActivate, active, timeRemaining, disabled, delayTime }) => {
   const { theme } = useTheme();
+  const { config } = useConfig();
   const urgency = timeRemaining < 180;
-  const progress = ((CONFIG.DELAY_PROTOCOL_TIME - timeRemaining) / CONFIG.DELAY_PROTOCOL_TIME) * 100;
-  
-  const color = urgency ? theme.accent.rose : theme.accent.amber;
+  const progress = ((config.DELAY_PROTOCOL_TIME - timeRemaining) / config.DELAY_PROTOCOL_TIME) * 100;
+  const color = urgency ? theme.accent.red : theme.accent.orange;
   
   if (active) {
     return (
-      <div 
-        className={clsx('relative overflow-hidden rounded-2xl p-6 border-2 transition-all duration-300', urgency && 'animate-pulse')}
-        style={{
-          background: `${color}10`,
-          borderColor: `${color}50`,
-        }}
-      >
-        {/* Progress background */}
-        <div 
-          className="absolute inset-0 transition-all duration-1000"
-          style={{ 
-            width: `${progress}%`,
-            background: `${color}08`
-          }}
-        />
-        
+      <div className="relative overflow-hidden rounded-2xl p-6 backdrop-blur-xl transition-all duration-300" style={{ background: urgency ? theme.fill.red : theme.fill.orange, boxShadow: theme.shadow.md }}>
+        <div className="absolute inset-0 transition-all duration-1000" style={{ width: `${progress}%`, background: `${color}15` }} />
         <div className="relative">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <Radio className="w-5 h-5 animate-pulse" style={{ color }} />
-              <span className="text-sm uppercase tracking-wider" style={{ color: theme.text.tertiary }}>
-                Delay Protocol Active
-              </span>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: color }} />
+              <span className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: theme.text.secondary }}>预约启动中</span>
             </div>
-            <span 
-              className="text-xs px-3 py-1 rounded-full"
-              style={{ background: `${color}20`, color }}
-            >
-              {urgency ? 'URGENT' : 'COUNTING'}
-            </span>
+            <span className="text-[12px] font-semibold px-3 py-1 rounded-full" style={{ background: `${color}20`, color }}>{urgency ? '紧急' : '倒计时'}</span>
           </div>
           
-          <div className="text-center mb-6">
-            <div 
-              className="text-6xl font-extralight tracking-tighter font-mono"
-              style={{ color }}
-            >
-              T-{formatTime(timeRemaining)}
-            </div>
-            <p className="text-sm mt-3" style={{ color: theme.text.muted }}>
-              倒计时结束前必须启动，否则触发审判
-            </p>
+          <div className="text-center mb-5">
+            <div className="text-5xl font-light tracking-tight tabular-nums" style={{ color }}>{formatTime(timeRemaining)}</div>
+            <p className="text-[13px] mt-2" style={{ color: theme.text.tertiary }}>倒计时结束前必须启动</p>
           </div>
           
-          <button
-            onClick={onActivate}
-            className="w-full py-4 rounded-xl font-medium transition-all duration-300"
-            style={{
-              background: urgency ? theme.accent.rose : theme.accent.emerald,
-              color: 'white'
-            }}
-          >
-            立即启动专注模式
+          <button onClick={onActivate} className="w-full py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]" style={{ background: color, color: '#FFFFFF' }}>
+            立即开始专注
           </button>
         </div>
       </div>
@@ -1430,34 +1377,22 @@ const DelayProtocol = memo(({ onLaunch, onActivate, active, timeRemaining, disab
   }
   
   return (
-    <button
-      onClick={onLaunch}
-      disabled={disabled}
-      className="w-full py-5 px-6 rounded-2xl transition-all duration-300 border"
-      style={{
-        background: theme.bg.card,
-        borderColor: theme.border.primary,
-        color: disabled ? theme.text.muted : theme.text.tertiary,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-    >
-      <div className="flex items-center justify-center gap-3">
-        <Zap className="w-5 h-5" />
-        <span className="text-sm tracking-wide">预约启动 (T-15:00)</span>
+    <button onClick={onLaunch} disabled={disabled} className="w-full py-4 px-6 rounded-xl transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]" style={{ background: theme.bg.tertiary, color: disabled ? theme.text.muted : theme.text.secondary, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+      <div className="flex items-center justify-center gap-2">
+        <Timer className="w-5 h-5" />
+        <span className="text-[15px] font-medium">预约启动 ({formatTimeVerbose(delayTime)})</span>
       </div>
     </button>
   );
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// TRIBUNAL MODAL
+// TRIBUNAL MODAL - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const TribunalModal = memo(({ 
-  isOpen, violation, currentChain, exceptions, purity,
-  onAdmitDefeat, onModifyLaw, onClose 
-}) => {
+const TribunalModal = memo(({ isOpen, violation, currentChain, exceptions, purity, onAdmitDefeat, onModifyLaw, onClose }) => {
   const { theme, isDark } = useTheme();
+  const { config } = useConfig();
   const [customException, setCustomException] = useState('');
   const [showCustomInput, setShowCustomInput] = useState(false);
   
@@ -1478,209 +1413,70 @@ const TribunalModal = memo(({
   
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div 
-        className="absolute inset-0 backdrop-blur-md"
-        style={{ background: 'rgba(0,0,0,0.8)' }}
-        onClick={onClose}
-      />
-      
-      <div className="relative w-full max-w-lg animate-scaleIn">
-        <div 
-          className="rounded-2xl border-2 overflow-hidden"
-          style={{
-            background: isDark ? 'rgba(20,20,30,0.98)' : 'rgba(255,255,255,0.98)',
-            borderColor: `${theme.accent.rose}50`,
-          }}
-        >
-          {/* Header */}
-          <div 
-            className="px-6 py-5 border-b"
-            style={{ 
-              background: `${theme.accent.rose}10`,
-              borderColor: `${theme.accent.rose}20`
-            }}
-          >
-            <div className="flex items-center gap-4">
-              <div 
-                className="w-12 h-12 rounded-xl flex items-center justify-center"
-                style={{ background: `${theme.accent.rose}20` }}
-              >
-                <AlertTriangle className="w-6 h-6 animate-pulse" style={{ color: theme.accent.rose }} />
-              </div>
-              <div>
-                <h2 className="text-xl font-medium" style={{ color: theme.text.primary }}>审 判 庭</h2>
-                <p className="text-sm" style={{ color: theme.text.muted }}>The Tribunal</p>
-              </div>
+      <div className="absolute inset-0 backdrop-blur-xl" style={{ background: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)' }} onClick={onClose} />
+      <div className="relative w-full max-w-md animate-scaleIn">
+        <div className="rounded-3xl overflow-hidden backdrop-blur-xl" style={{ background: theme.bg.blur, boxShadow: theme.shadow.xl, border: `0.5px solid ${theme.border.primary}` }}>
+          <div className="px-6 py-5 text-center" style={{ background: theme.fill.red }}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: `${theme.accent.red}25` }}>
+              <AlertTriangle className="w-7 h-7" style={{ color: theme.accent.red }} />
             </div>
+            <h2 className="text-xl font-semibold" style={{ color: theme.text.primary }}>专注中断</h2>
+            <p className="text-[13px] mt-1" style={{ color: theme.text.tertiary }}>请选择如何处理此次中断</p>
           </div>
           
-          {/* Content */}
-          <div className="p-6 space-y-6">
-            {/* Violation info */}
-            <div 
-              className="p-4 rounded-xl border"
-              style={{ background: theme.bg.card, borderColor: theme.border.secondary }}
-            >
-              <div className="text-xs uppercase tracking-wider mb-2" style={{ color: theme.text.muted }}>
-                违规事项
-              </div>
-              <div className="font-medium" style={{ color: theme.text.primary }}>
-                {violation?.reason || '专注模式中断'}
-              </div>
-              {violation?.duration && (
-                <div className="text-sm mt-1" style={{ color: theme.text.muted }}>
-                  已持续: {Math.floor(violation.duration / 60)}分{violation.duration % 60}秒
-                </div>
-              )}
+          <div className="p-6 space-y-4">
+            <div className="p-4 rounded-xl" style={{ background: theme.bg.tertiary }}>
+              <div className="text-[12px] font-medium uppercase tracking-wide mb-1" style={{ color: theme.text.muted }}>中断原因</div>
+              <div className="text-[15px] font-medium" style={{ color: theme.text.primary }}>{violation?.reason || '专注模式中断'}</div>
+              {violation?.duration && <div className="text-[13px] mt-1" style={{ color: theme.text.tertiary }}>已专注: {formatTimeVerbose(violation.duration)}</div>}
             </div>
             
-            {/* Options */}
-            <div className="space-y-4">
-              {/* Admit defeat */}
-              <button
-                onClick={onAdmitDefeat}
-                className="w-full p-5 rounded-xl border-2 text-left group transition-all duration-300"
-                style={{
-                  background: `${theme.accent.rose}05`,
-                  borderColor: `${theme.accent.rose}30`,
-                }}
-              >
-                <div className="flex items-start gap-4">
-                  <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center transition-colors"
-                    style={{ background: `${theme.accent.rose}10` }}
-                  >
-                    <X className="w-6 h-6" style={{ color: theme.accent.rose }} />
+            <div className="space-y-3">
+              <button onClick={onAdmitDefeat} className="w-full p-4 rounded-xl text-left transition-all duration-200 hover:scale-[1.01] active:scale-[0.99]" style={{ background: theme.fill.red }}>
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: `${theme.accent.red}20` }}>
+                    <X className="w-5 h-5" style={{ color: theme.accent.red }} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-lg font-medium mb-1" style={{ color: theme.accent.rose }}>
-                      承认失败
-                    </div>
-                    <div className="text-sm" style={{ color: theme.text.tertiary }}>
-                      链条归零，从 #1 重新开始
-                    </div>
-                    <div className="text-xs mt-2 font-mono" style={{ color: `${theme.accent.rose}80` }}>
-                      Chain #{currentChain} → #0
-                    </div>
+                    <div className="text-[16px] font-semibold" style={{ color: theme.accent.red }}>承认失败</div>
+                    <div className="text-[13px]" style={{ color: theme.text.tertiary }}>链条归零，从头开始</div>
                   </div>
                 </div>
               </button>
               
-              {/* Modify law */}
-              <div 
-                className="p-5 rounded-xl border-2"
-                style={{
-                  background: `${theme.accent.amber}05`,
-                  borderColor: `${theme.accent.amber}30`,
-                }}
-              >
-                <div className="flex items-start gap-4 mb-5">
-                  <div 
-                    className="w-12 h-12 rounded-xl flex items-center justify-center"
-                    style={{ background: `${theme.accent.amber}10` }}
-                  >
-                    <AlertCircle className="w-6 h-6" style={{ color: theme.accent.amber }} />
+              <div className="p-4 rounded-xl" style={{ background: theme.fill.orange }}>
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: `${theme.accent.orange}20` }}>
+                    <AlertCircle className="w-5 h-5" style={{ color: theme.accent.orange }} />
                   </div>
                   <div className="flex-1">
-                    <div className="text-lg font-medium mb-1" style={{ color: theme.accent.amber }}>
-                      修改法律
-                    </div>
-                    <div className="text-sm" style={{ color: theme.text.tertiary }}>
-                      将此行为设为永久合法例外
-                    </div>
-                    <div className="text-xs mt-2" style={{ color: `${theme.accent.amber}80` }}>
-                      纯净度: {purity}% → {Math.max(0, purity - CONFIG.PURITY_REDUCTION_PER_EXCEPTION)}%
-                    </div>
+                    <div className="text-[16px] font-semibold" style={{ color: theme.accent.orange }}>添加例外</div>
+                    <div className="text-[13px]" style={{ color: theme.text.tertiary }}>纯净度: {purity}% → {Math.max(0, purity - DEFAULT_CONFIG.PURITY_REDUCTION_PER_EXCEPTION)}%</div>
                   </div>
                 </div>
                 
-                {/* Predefined */}
-                <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="grid grid-cols-2 gap-2 mb-3">
                   {predefinedExceptions.map(ex => {
                     const Icon = ex.icon;
                     return (
-                      <button
-                        key={ex.id}
-                        onClick={() => handleModifyLaw(ex.name)}
-                        className="flex items-center gap-2 px-4 py-3 rounded-xl border transition-all duration-200"
-                        style={{
-                          background: theme.bg.card,
-                          borderColor: theme.border.secondary,
-                          color: theme.text.secondary,
-                        }}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span className="text-sm">{ex.name}</span>
+                      <button key={ex.id} onClick={() => handleModifyLaw(ex.name)} className="flex items-center gap-2 px-4 py-3 rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]" style={{ background: theme.bg.secondary, color: theme.text.secondary }}>
+                        <Icon className="w-4 h-4" style={{ color: theme.accent.orange }} />
+                        <span className="text-[14px] font-medium">{ex.name}</span>
                       </button>
                     );
                   })}
                 </div>
                 
-                {/* Custom */}
                 {showCustomInput ? (
                   <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={customException}
-                      onChange={(e) => setCustomException(e.target.value)}
-                      placeholder="输入自定义例外..."
-                      className="flex-1 px-4 py-3 rounded-xl border text-sm"
-                      style={{
-                        background: theme.bg.card,
-                        borderColor: theme.border.secondary,
-                        color: theme.text.primary,
-                      }}
-                      autoFocus
-                    />
-                    <button
-                      onClick={() => customException.trim() && handleModifyLaw(customException.trim())}
-                      disabled={!customException.trim()}
-                      className="px-5 py-3 rounded-xl font-medium text-sm transition-colors"
-                      style={{
-                        background: theme.accent.amber,
-                        color: 'black',
-                        opacity: customException.trim() ? 1 : 0.5,
-                      }}
-                    >
-                      确认
-                    </button>
+                    <input type="text" value={customException} onChange={(e) => setCustomException(e.target.value)} placeholder="输入自定义例外..." className="flex-1 px-4 py-3 rounded-xl text-[14px] outline-none transition-all" style={{ background: theme.bg.secondary, border: `1px solid ${theme.border.focus}`, color: theme.text.primary }} autoFocus />
+                    <button onClick={() => customException.trim() && handleModifyLaw(customException.trim())} disabled={!customException.trim()} className="px-5 py-3 rounded-xl font-semibold text-[14px] transition-all" style={{ background: theme.accent.orange, color: '#FFFFFF', opacity: customException.trim() ? 1 : 0.5 }}>确认</button>
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setShowCustomInput(true)}
-                    className="w-full px-4 py-3 rounded-xl border border-dashed text-sm transition-all"
-                    style={{
-                      borderColor: theme.border.primary,
-                      color: theme.text.muted,
-                    }}
-                  >
-                    + 自定义例外
-                  </button>
+                  <button onClick={() => setShowCustomInput(true)} className="w-full px-4 py-3 rounded-xl border-2 border-dashed text-[14px] font-medium transition-all" style={{ borderColor: theme.border.primary, color: theme.text.muted }}>+ 自定义例外</button>
                 )}
               </div>
             </div>
-            
-            {/* History */}
-            {exceptions.length > 0 && (
-              <div 
-                className="pt-4 border-t"
-                style={{ borderColor: theme.border.secondary }}
-              >
-                <div className="text-xs uppercase tracking-wider mb-3" style={{ color: theme.text.muted }}>
-                  历史判例
-                </div>
-                <div className="space-y-2">
-                  {exceptions.slice(-3).map((ex, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs">
-                      <span style={{ color: theme.text.tertiary }}>
-                        #{ex.chainAtCreation} · 「{ex.name}」
-                      </span>
-                      <span style={{ color: theme.text.muted }}>{formatDate(ex.createdAt)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1689,174 +1485,62 @@ const TribunalModal = memo(({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// FOCUS MODE OVERLAY
+// FOCUS MODE OVERLAY - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const FocusModeOverlay = memo(({ 
-  active, chainNumber, taskName, timeRemaining, isBreak,
-  onInterrupt, onComplete, onToggleBreak
-}) => {
+const FocusModeOverlay = memo(({ active, chainNumber, taskName, timeRemaining, totalTime, isBreak, onInterrupt, onComplete, onToggleBreak }) => {
   const { theme, isDark } = useTheme();
   const [showInterruptWarning, setShowInterruptWarning] = useState(false);
   
   if (!active) return null;
   
-  const totalTime = isBreak ? CONFIG.BREAK_TIME : CONFIG.FOCUS_TIME;
   const progress = ((totalTime - timeRemaining) / totalTime) * 100;
-  const color = isBreak ? theme.accent.cyan : theme.accent.emerald;
+  const color = isBreak ? theme.accent.teal : theme.accent.blue;
   
   return (
-    <div 
-      className="fixed inset-0 z-40 flex flex-col"
-      style={{ background: isDark ? '#0a0a0f' : '#f8fafc' }}
-    >
-      {/* Background effect */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div 
-          className="absolute inset-0 transition-opacity duration-1000"
-          style={{
-            background: `radial-gradient(ellipse at center, ${color}08 0%, transparent 70%)`
-          }}
-        />
-      </div>
+    <div className="fixed inset-0 z-40 flex flex-col" style={{ background: theme.bg.primary }}>
+      <div className="absolute inset-0 transition-opacity duration-1000" style={{ background: `radial-gradient(ellipse at 50% 30%, ${color}12 0%, transparent 60%)` }} />
       
-      {/* Top bar */}
-      <div 
-        className="relative flex items-center justify-between px-8 py-6 border-b"
-        style={{ borderColor: theme.border.secondary }}
-      >
-        <div className="flex items-center gap-4">
-          <div 
-            className="w-3 h-3 rounded-full animate-pulse"
-            style={{ background: color }}
-          />
-          <span 
-            className="text-sm uppercase tracking-widest"
-            style={{ color: theme.text.muted }}
-          >
-            {isBreak ? 'Break Mode' : 'Focus Mode'} · Chain #{chainNumber}
-          </span>
+      <div className="relative flex items-center justify-between px-8 py-5" style={{ borderBottom: `0.5px solid ${theme.border.primary}` }}>
+        <div className="flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: color }} />
+          <span className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: theme.text.tertiary }}>{isBreak ? '休息时间' : '专注模式'} · 第 {chainNumber} 次</span>
         </div>
-        
-        <button
-          onClick={() => setShowInterruptWarning(true)}
-          className="px-5 py-2 rounded-xl border text-sm transition-colors"
-          style={{
-            borderColor: `${theme.accent.rose}30`,
-            color: theme.accent.rose,
-          }}
-        >
-          紧急中断
-        </button>
+        <button onClick={() => setShowInterruptWarning(true)} className="px-4 py-2 rounded-full text-[13px] font-medium transition-all hover:scale-105 active:scale-95" style={{ background: theme.fill.red, color: theme.accent.red }}>紧急中断</button>
       </div>
       
-      {/* Main */}
       <div className="relative flex-1 flex flex-col items-center justify-center px-8">
-        {/* Timer ring */}
         <div className="relative mb-8">
-          <NeonRing 
-            progress={progress} 
-            size={280} 
-            strokeWidth={4} 
-            colorKey={isBreak ? 'cyan' : 'emerald'}
-          />
+          <AppleRing progress={progress} size={280} strokeWidth={12} colorKey={isBreak ? 'teal' : 'blue'} />
           <div className="absolute inset-0 flex items-center justify-center">
-            <div 
-              className="text-7xl font-extralight tracking-tighter font-mono"
-              style={{ color }}
-            >
-              {formatTime(timeRemaining)}
-            </div>
+            <div className="text-7xl font-extralight tracking-tight tabular-nums" style={{ color }}>{formatTime(timeRemaining)}</div>
           </div>
         </div>
         
-        {/* Task */}
-        <div className="text-center mb-12">
-          <div className="text-2xl font-light mb-2" style={{ color: theme.text.primary }}>
-            {taskName || '专注中...'}
-          </div>
-          <div className="text-sm" style={{ color: theme.text.muted }}>
-            {isBreak ? '休息一下，准备下一轮' : '保持专注，完成目标'}
-          </div>
+        <div className="text-center mb-10">
+          <div className="text-2xl font-semibold mb-2" style={{ color: theme.text.primary }}>{taskName || (isBreak ? '休息一下' : '保持专注')}</div>
+          <div className="text-[15px]" style={{ color: theme.text.tertiary }}>{isBreak ? '放松身心，准备下一轮' : '全神贯注，完成目标'}</div>
         </div>
         
-        {/* Actions */}
         <div className="flex gap-4">
-          <button
-            onClick={onToggleBreak}
-            className="px-8 py-4 rounded-xl border transition-all"
-            style={{
-              borderColor: isBreak ? `${theme.accent.emerald}40` : `${theme.accent.cyan}40`,
-              color: isBreak ? theme.accent.emerald : theme.accent.cyan,
-            }}
-          >
-            {isBreak ? '跳过休息' : '需要休息'}
-          </button>
-          
-          <button
-            onClick={onComplete}
-            className="px-8 py-4 rounded-xl font-medium transition-all"
-            style={{
-              background: theme.accent.emerald,
-              color: isDark ? 'black' : 'white',
-            }}
-          >
-            完成任务
-          </button>
+          <button onClick={onToggleBreak} className="px-8 py-4 rounded-full font-semibold text-[15px] transition-all duration-300 hover:scale-105 active:scale-95" style={{ background: theme.bg.tertiary, color: theme.text.secondary }}>{isBreak ? '跳过休息' : '需要休息'}</button>
+          <button onClick={onComplete} className="px-8 py-4 rounded-full font-semibold text-[15px] transition-all duration-300 hover:scale-105 active:scale-95" style={{ background: `linear-gradient(135deg, ${theme.accent.blue}, ${theme.accent.indigo})`, color: '#FFFFFF', boxShadow: theme.shadow.glow }}>完成任务</button>
         </div>
       </div>
       
-      {/* Interrupt warning */}
       {showInterruptWarning && (
-        <div 
-          className="absolute inset-0 flex items-center justify-center p-4 z-50"
-          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)' }}
-        >
-          <div 
-            className="max-w-sm p-6 rounded-2xl border"
-            style={{
-              background: isDark ? 'rgba(20,20,30,0.98)' : 'rgba(255,255,255,0.98)',
-              borderColor: theme.border.primary,
-            }}
-          >
+        <div className="absolute inset-0 flex items-center justify-center p-4 z-50" style={{ background: isDark ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' }}>
+          <div className="max-w-sm w-full p-6 rounded-3xl animate-scaleIn" style={{ background: theme.bg.blur, boxShadow: theme.shadow.xl, border: `0.5px solid ${theme.border.primary}`, backdropFilter: 'blur(40px)' }}>
             <div className="text-center mb-6">
-              <div 
-                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: `${theme.accent.rose}10` }}
-              >
-                <AlertTriangle className="w-8 h-8" style={{ color: theme.accent.rose }} />
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: theme.fill.red }}>
+                <AlertTriangle className="w-8 h-8" style={{ color: theme.accent.red }} />
               </div>
-              <h3 className="text-xl font-medium mb-2" style={{ color: theme.text.primary }}>
-                确认中断？
-              </h3>
-              <p className="text-sm" style={{ color: theme.text.tertiary }}>
-                中断专注模式将触发审判庭
-              </p>
+              <h3 className="text-xl font-semibold mb-2" style={{ color: theme.text.primary }}>确认中断？</h3>
+              <p className="text-[14px]" style={{ color: theme.text.tertiary }}>中断专注将触发审判流程</p>
             </div>
             <div className="flex gap-3">
-              <button
-                onClick={() => setShowInterruptWarning(false)}
-                className="flex-1 py-3 rounded-xl border transition-colors"
-                style={{
-                  borderColor: theme.border.primary,
-                  color: theme.text.secondary,
-                }}
-              >
-                继续专注
-              </button>
-              <button
-                onClick={() => {
-                  setShowInterruptWarning(false);
-                  onInterrupt();
-                }}
-                className="flex-1 py-3 rounded-xl font-medium"
-                style={{
-                  background: theme.accent.rose,
-                  color: 'white',
-                }}
-              >
-                确认中断
-              </button>
+              <button onClick={() => setShowInterruptWarning(false)} className="flex-1 py-3.5 rounded-xl font-semibold text-[15px] transition-all hover:scale-[1.02] active:scale-[0.98]" style={{ background: theme.bg.tertiary, color: theme.text.secondary }}>继续专注</button>
+              <button onClick={() => { setShowInterruptWarning(false); onInterrupt(); }} className="flex-1 py-3.5 rounded-xl font-semibold text-[15px] transition-all hover:scale-[1.02] active:scale-[0.98]" style={{ background: theme.accent.red, color: '#FFFFFF' }}>确认中断</button>
             </div>
           </div>
         </div>
@@ -1866,7 +1550,7 @@ const FocusModeOverlay = memo(({
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MISSION ITEM & QUEUE
+// MISSION COMPONENTS - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const MissionItem = memo(({ mission, isActive, onStart, onComplete, onDelete }) => {
@@ -1875,71 +1559,25 @@ const MissionItem = memo(({ mission, isActive, onStart, onComplete, onDelete }) 
   const color = theme.accent[config.colorKey] || theme.text.muted;
   
   return (
-    <div 
-      className={clsx(
-        'group relative p-4 rounded-xl border transition-all duration-300',
-        isActive && 'shadow-lg'
-      )}
-      style={{
-        background: isActive ? `${theme.accent.emerald}08` : theme.bg.card,
-        borderColor: isActive ? `${theme.accent.emerald}30` : theme.border.secondary,
-      }}
-    >
+    <div className={clsx('group relative p-4 rounded-xl transition-all duration-300', isActive && 'scale-[1.02]')} style={{ background: isActive ? theme.fill.blue : theme.bg.tertiary, boxShadow: isActive ? theme.shadow.md : 'none' }}>
       <div className="flex items-start gap-4">
-        <div 
-          className="px-2 py-1 rounded-lg text-[10px] font-medium uppercase tracking-wider border"
-          style={{
-            background: `${color}10`,
-            borderColor: `${color}30`,
-            color,
-          }}
-        >
-          {config.label}
-        </div>
-        
+        <div className="px-2.5 py-1 rounded-lg text-[11px] font-semibold uppercase tracking-wide" style={{ background: theme.fill[config.colorKey], color }}>{config.label}</div>
         <div className="flex-1 min-w-0">
-          <div style={{ color: theme.text.primary }}>{mission.text}</div>
+          <div className="text-[15px] font-medium" style={{ color: theme.text.primary }}>{mission.text}</div>
           {mission.estimatedTime && (
-            <div className="flex items-center gap-1 text-xs mt-1" style={{ color: theme.text.muted }}>
+            <div className="flex items-center gap-1 text-[12px] mt-1" style={{ color: theme.text.muted }}>
               <Timer className="w-3 h-3" />
               <span>预计 {mission.estimatedTime} 分钟</span>
             </div>
           )}
         </div>
-        
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          {!isActive && (
-            <button
-              onClick={onStart}
-              className="p-2 rounded-lg transition-colors"
-              style={{ color: theme.accent.emerald }}
-            >
-              <Play className="w-4 h-4" />
-            </button>
-          )}
-          <button
-            onClick={onComplete}
-            className="p-2 rounded-lg transition-colors"
-            style={{ color: theme.accent.emerald }}
-          >
-            <Check className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-2 rounded-lg transition-colors"
-            style={{ color: theme.accent.rose }}
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {!isActive && <button onClick={onStart} className="p-2 rounded-lg transition-all hover:scale-110 active:scale-95" style={{ color: theme.accent.blue }}><Play className="w-4 h-4" fill="currentColor" /></button>}
+          <button onClick={onComplete} className="p-2 rounded-lg transition-all hover:scale-110 active:scale-95" style={{ color: theme.accent.green }}><Check className="w-4 h-4" /></button>
+          <button onClick={onDelete} className="p-2 rounded-lg transition-all hover:scale-110 active:scale-95" style={{ color: theme.accent.red }}><Trash2 className="w-4 h-4" /></button>
         </div>
       </div>
-      
-      {isActive && (
-        <div 
-          className="absolute left-0 top-4 bottom-4 w-1 rounded-r"
-          style={{ background: theme.accent.emerald }}
-        />
-      )}
+      {isActive && <div className="absolute left-0 top-3 bottom-3 w-1 rounded-r-full" style={{ background: theme.accent.blue }} />}
     </div>
   );
 });
@@ -1949,48 +1587,32 @@ const MissionQueue = memo(({ missions, activeMissionId, onStart, onComplete, onD
   
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Target className="w-4 h-4" style={{ color: theme.text.muted }} />
-          <span className="text-xs uppercase tracking-wider" style={{ color: theme.text.muted }}>
-            Mission Queue
-          </span>
+          <span className="text-[12px] font-semibold uppercase tracking-wide" style={{ color: theme.text.muted }}>任务队列</span>
         </div>
-        <span className="text-xs" style={{ color: theme.text.muted }}>{missions.length} 任务</span>
+        <span className="text-[12px] font-medium" style={{ color: theme.text.muted }}>{missions.length} 个任务</span>
       </div>
       
       {missions.length === 0 ? (
         <div className="text-center py-12">
-          <div 
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: theme.bg.card }}
-          >
-            <Terminal className="w-8 h-8" style={{ color: theme.text.muted }} />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: theme.bg.tertiary }}>
+            <Target className="w-8 h-8" style={{ color: theme.text.muted }} />
           </div>
-          <p className="text-sm" style={{ color: theme.text.muted }}>任务队列为空</p>
-          <p className="text-xs mt-1" style={{ color: theme.text.muted }}>添加任务开始专注</p>
+          <p className="text-[15px] font-medium" style={{ color: theme.text.tertiary }}>暂无任务</p>
+          <p className="text-[13px] mt-1" style={{ color: theme.text.muted }}>添加任务开始专注</p>
         </div>
       ) : (
         <div className="space-y-2">
           {missions.map(mission => (
-            <MissionItem
-              key={mission.id}
-              mission={mission}
-              isActive={mission.id === activeMissionId}
-              onStart={() => onStart(mission.id)}
-              onComplete={() => onComplete(mission.id)}
-              onDelete={() => onDelete(mission.id)}
-            />
+            <MissionItem key={mission.id} mission={mission} isActive={mission.id === activeMissionId} onStart={() => onStart(mission.id)} onComplete={() => onComplete(mission.id)} onDelete={() => onDelete(mission.id)} />
           ))}
         </div>
       )}
     </div>
   );
 });
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ADD MISSION FORM
-// ═══════════════════════════════════════════════════════════════════════════════
 
 const AddMissionForm = memo(({ onAdd }) => {
   const { theme } = useTheme();
@@ -2002,15 +1624,7 @@ const AddMissionForm = memo(({ onAdd }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!text.trim()) return;
-    
-    onAdd({
-      id: generateId(),
-      text: text.trim(),
-      priority,
-      estimatedTime: estimatedTime ? parseInt(estimatedTime) : null,
-      createdAt: new Date()
-    });
-    
+    onAdd({ id: generateId(), text: text.trim(), priority, estimatedTime: estimatedTime ? parseInt(estimatedTime) : null, createdAt: new Date() });
     setText('');
     setEstimatedTime('');
     setExpanded(false);
@@ -2019,29 +1633,8 @@ const AddMissionForm = memo(({ onAdd }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex gap-3">
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onFocus={() => setExpanded(true)}
-          placeholder="添加新任务..."
-          className="flex-1 px-5 py-4 rounded-xl border transition-all duration-300"
-          style={{
-            background: theme.bg.card,
-            borderColor: theme.border.primary,
-            color: theme.text.primary,
-          }}
-        />
-        <button
-          type="submit"
-          disabled={!text.trim()}
-          className="px-5 py-4 rounded-xl font-medium transition-all"
-          style={{
-            background: theme.accent.emerald,
-            color: 'white',
-            opacity: text.trim() ? 1 : 0.3,
-          }}
-        >
+        <input type="text" value={text} onChange={(e) => setText(e.target.value)} onFocus={() => setExpanded(true)} placeholder="添加新任务..." className="flex-1 px-5 py-4 rounded-xl text-[15px] outline-none transition-all duration-300" style={{ background: theme.bg.tertiary, color: theme.text.primary, border: '1px solid transparent' }} />
+        <button type="submit" disabled={!text.trim()} className="px-5 py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-105 active:scale-95" style={{ background: text.trim() ? `linear-gradient(135deg, ${theme.accent.blue}, ${theme.accent.indigo})` : theme.bg.tertiary, color: text.trim() ? '#FFFFFF' : theme.text.muted }}>
           <Plus className="w-5 h-5" />
         </button>
       </div>
@@ -2049,53 +1642,25 @@ const AddMissionForm = memo(({ onAdd }) => {
       {expanded && (
         <div className="flex flex-wrap gap-4 animate-fadeIn">
           <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: theme.text.muted }}>优先级:</span>
+            <span className="text-[12px] font-medium" style={{ color: theme.text.muted }}>优先级:</span>
             <div className="flex gap-1">
-              {Object.entries(PRIORITY_CONFIG).map(([key, config]) => {
-                const color = theme.accent[config.colorKey] || theme.text.muted;
+              {Object.entries(PRIORITY_CONFIG).map(([key, cfg]) => {
+                const color = theme.accent[cfg.colorKey] || theme.text.muted;
                 return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setPriority(key)}
-                    className="px-3 py-1.5 rounded-lg text-xs transition-all border"
-                    style={{
-                      background: priority === key ? `${color}15` : 'transparent',
-                      borderColor: priority === key ? `${color}40` : 'transparent',
-                      color: priority === key ? color : theme.text.muted,
-                    }}
-                  >
-                    {config.label}
-                  </button>
+                  <button key={key} type="button" onClick={() => setPriority(key)} className="px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all duration-200" style={{ background: priority === key ? theme.fill[cfg.colorKey] : 'transparent', color: priority === key ? color : theme.text.muted }}>{cfg.label}</button>
                 );
               })}
             </div>
           </div>
-          
           <div className="flex items-center gap-2">
-            <span className="text-xs" style={{ color: theme.text.muted }}>预计:</span>
-            <input
-              type="number"
-              value={estimatedTime}
-              onChange={(e) => setEstimatedTime(e.target.value)}
-              placeholder="分钟"
-              className="w-20 px-3 py-1.5 rounded-lg border text-xs"
-              style={{
-                background: theme.bg.card,
-                borderColor: theme.border.secondary,
-                color: theme.text.secondary,
-              }}
-            />
+            <span className="text-[12px] font-medium" style={{ color: theme.text.muted }}>预计:</span>
+            <input type="number" value={estimatedTime} onChange={(e) => setEstimatedTime(e.target.value)} placeholder="分钟" className="w-20 px-3 py-1.5 rounded-lg text-[12px] outline-none" style={{ background: theme.bg.tertiary, color: theme.text.secondary }} />
           </div>
         </div>
       )}
     </form>
   );
 });
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// COMPLETED MISSIONS
-// ═══════════════════════════════════════════════════════════════════════════════
 
 const CompletedMissions = memo(({ missions, onDelete }) => {
   const { theme } = useTheme();
@@ -2104,48 +1669,22 @@ const CompletedMissions = memo(({ missions, onDelete }) => {
   if (missions.length === 0) return null;
   
   return (
-    <div 
-      className="pt-6 mt-6 border-t"
-      style={{ borderColor: theme.border.secondary }}
-    >
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 w-full transition-colors"
-        style={{ color: theme.text.muted }}
-      >
-        <ChevronRight 
-          className={clsx('w-4 h-4 transition-transform duration-200', expanded && 'rotate-90')}
-        />
-        <CheckCircle2 className="w-4 h-4" style={{ color: `${theme.accent.emerald}70` }} />
-        <span className="text-xs uppercase tracking-wider">Completed</span>
-        <span className="text-xs">({missions.length})</span>
+    <div className="pt-5 mt-5 border-t" style={{ borderColor: theme.border.secondary }}>
+      <button onClick={() => setExpanded(!expanded)} className="flex items-center gap-2 w-full transition-colors px-1" style={{ color: theme.text.muted }}>
+        <ChevronRight className={clsx('w-4 h-4 transition-transform duration-200', expanded && 'rotate-90')} />
+        <CheckCircle2 className="w-4 h-4" style={{ color: theme.accent.green }} />
+        <span className="text-[12px] font-semibold uppercase tracking-wide">已完成</span>
+        <span className="text-[12px]">({missions.length})</span>
       </button>
       
       {expanded && (
-        <div className="mt-4 space-y-2 animate-fadeIn">
+        <div className="mt-3 space-y-2 animate-fadeIn">
           {missions.map(mission => (
-            <div 
-              key={mission.id}
-              className="group flex items-center gap-3 p-3 rounded-lg"
-              style={{ background: theme.bg.card }}
-            >
-              <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: `${theme.accent.emerald}50` }} />
-              <span 
-                className="flex-1 line-through text-sm"
-                style={{ color: theme.text.muted }}
-              >
-                {mission.text}
-              </span>
-              <span className="text-xs" style={{ color: theme.text.muted }}>
-                {formatDateTime(mission.completedAt)}
-              </span>
-              <button
-                onClick={() => onDelete(mission.id)}
-                className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
-                style={{ color: theme.accent.rose }}
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+            <div key={mission.id} className="group flex items-center gap-3 p-3 rounded-xl" style={{ background: theme.bg.tertiary }}>
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: theme.accent.green }} />
+              <span className="flex-1 line-through text-[14px]" style={{ color: theme.text.muted }}>{mission.text}</span>
+              <span className="text-[12px]" style={{ color: theme.text.muted }}>{formatDateTime(mission.completedAt)}</span>
+              <button onClick={() => onDelete(mission.id)} className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all" style={{ color: theme.accent.red }}><Trash2 className="w-3 h-3" /></button>
             </div>
           ))}
         </div>
@@ -2155,15 +1694,11 @@ const CompletedMissions = memo(({ missions, onDelete }) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// POLICY TREE (Simplified for space)
+// POLICY TREE PANEL - Apple Style (Simplified)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const PolicyNodeIcon = memo(({ icon, className, style }) => {
-  const icons = {
-    hexagon: Hexagon, sun: Sun, coffee: Coffee, activity: Activity,
-    brain: Brain, edit: Terminal, clipboard: Layers, target: Target,
-    sparkles: Sparkles, heart: Activity, zap: Zap,
-  };
+  const icons = { hexagon: Hexagon, sun: Sun, coffee: Coffee, activity: Activity, brain: Brain, edit: Terminal, clipboard: Layers, target: Target, sparkles: Sparkles, heart: Activity, zap: Zap };
   const Icon = icons[icon] || Circle;
   return <Icon className={className} style={style} />;
 });
@@ -2171,7 +1706,6 @@ const PolicyNodeIcon = memo(({ icon, className, style }) => {
 const PolicyTreePanel = memo(({ nodes, dailyUnlockUsed, onUnlockNode, onActivateNode }) => {
   const { theme } = useTheme();
   const [expanded, setExpanded] = useState(false);
-  
   const activeCount = nodes.filter(n => n.status === 'active').length;
   const unlockedCount = nodes.filter(n => n.status === 'unlocked' || n.status === 'active').length;
   
@@ -2191,120 +1725,66 @@ const PolicyTreePanel = memo(({ nodes, dailyUnlockUsed, onUnlockNode, onActivate
     return parent && (parent.status === 'active' || parent.status === 'unlocked');
   }, [nodes, dailyUnlockUsed]);
   
-  const statusColors = {
-    active: theme.accent.emerald,
-    unlocked: theme.accent.cyan,
-    locked: theme.text.muted,
-    failed: theme.accent.rose,
+  const statusConfig = {
+    active: { color: theme.accent.green, fill: theme.fill.green },
+    unlocked: { color: theme.accent.blue, fill: theme.fill.blue },
+    locked: { color: theme.text.muted, fill: theme.bg.tertiary },
+    failed: { color: theme.accent.red, fill: theme.fill.red },
   };
   
   return (
-    <GlassCard className="p-6" glowColor="cyan">
-      <button 
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between"
-      >
+    <AppleCard padding="none">
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between p-6">
         <div className="flex items-center gap-3">
-          <div 
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: `${theme.accent.cyan}15` }}
-          >
-            <GitBranch className="w-5 h-5" style={{ color: theme.accent.cyan }} />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: theme.fill.indigo }}>
+            <GitBranch className="w-5 h-5" style={{ color: theme.accent.indigo }} />
           </div>
           <div className="text-left">
-            <h3 className="text-sm font-medium" style={{ color: theme.text.primary }}>
-              Policy Focus Tree
-            </h3>
-            <p className="text-xs" style={{ color: theme.text.muted }}>国策树 · RSIP</p>
+            <h3 className="text-[15px] font-semibold" style={{ color: theme.text.primary }}>习惯树</h3>
+            <p className="text-[12px]" style={{ color: theme.text.tertiary }}>Policy Focus Tree</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-sm" style={{ color: theme.accent.cyan }}>{activeCount} 激活</div>
-            <div className="text-xs" style={{ color: theme.text.muted }}>{unlockedCount}/{nodes.length}</div>
+            <div className="text-[14px] font-semibold" style={{ color: theme.accent.indigo }}>{activeCount} 激活</div>
+            <div className="text-[12px]" style={{ color: theme.text.muted }}>{unlockedCount}/{nodes.length}</div>
           </div>
-          <ChevronDown 
-            className={clsx('w-5 h-5 transition-transform', expanded && 'rotate-180')}
-            style={{ color: theme.text.muted }}
-          />
+          <ChevronDown className={clsx('w-5 h-5 transition-transform duration-300', expanded && 'rotate-180')} style={{ color: theme.text.muted }} />
         </div>
       </button>
       
       {expanded && (
-        <div className="mt-6 animate-fadeIn">
-          {/* Daily unlock status */}
-          <div 
-            className="mb-6 p-4 rounded-xl border"
-            style={{
-              background: dailyUnlockUsed ? `${theme.accent.rose}05` : `${theme.accent.emerald}05`,
-              borderColor: dailyUnlockUsed ? `${theme.accent.rose}20` : `${theme.accent.emerald}20`,
-            }}
-          >
+        <div className="px-6 pb-6 animate-fadeIn">
+          <div className="mb-5 p-4 rounded-xl" style={{ background: dailyUnlockUsed ? theme.fill.red : theme.fill.green }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {dailyUnlockUsed ? (
-                  <Lock className="w-4 h-4" style={{ color: theme.accent.rose }} />
-                ) : (
-                  <Unlock className="w-4 h-4" style={{ color: theme.accent.emerald }} />
-                )}
-                <span className="text-sm" style={{ color: theme.text.secondary }}>
-                  {dailyUnlockUsed ? '今日配额已用' : '今日可解锁 1 个节点'}
-                </span>
+                {dailyUnlockUsed ? <Lock className="w-4 h-4" style={{ color: theme.accent.red }} /> : <Unlock className="w-4 h-4" style={{ color: theme.accent.green }} />}
+                <span className="text-[14px] font-medium" style={{ color: theme.text.secondary }}>{dailyUnlockUsed ? '今日配额已用' : '今日可解锁 1 个节点'}</span>
               </div>
-              <span 
-                className="text-xs px-2 py-1 rounded-full"
-                style={{
-                  background: dailyUnlockUsed ? `${theme.accent.rose}15` : `${theme.accent.emerald}15`,
-                  color: dailyUnlockUsed ? theme.accent.rose : theme.accent.emerald,
-                }}
-              >
-                {dailyUnlockUsed ? '0/1' : '1/1'}
-              </span>
+              <span className="text-[12px] font-semibold px-2.5 py-1 rounded-full" style={{ background: dailyUnlockUsed ? `${theme.accent.red}20` : `${theme.accent.green}20`, color: dailyUnlockUsed ? theme.accent.red : theme.accent.green }}>{dailyUnlockUsed ? '0/1' : '1/1'}</span>
             </div>
           </div>
           
-          {/* Nodes by tier */}
-          <div className="space-y-6">
+          <div className="space-y-5">
             {Object.entries(nodesByTier).sort(([a], [b]) => a - b).map(([tier, tierNodes]) => (
               <div key={tier}>
-                <div className="text-[10px] uppercase tracking-wider mb-3" style={{ color: theme.text.muted }}>
-                  Tier {tier}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wider mb-3 px-1" style={{ color: theme.text.muted }}>第 {tier} 层</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {tierNodes.map(node => {
-                    const color = statusColors[node.status];
+                    const cfg = statusConfig[node.status];
                     const canUnlockThis = canUnlock(node);
-                    
                     return (
-                      <button
-                        key={node.id}
-                        onClick={() => {
-                          if (canUnlockThis) onUnlockNode(node.id);
-                          else if (node.status === 'unlocked') onActivateNode(node.id);
-                        }}
-                        disabled={node.status === 'locked' && !canUnlockThis}
-                        className={clsx(
-                          'p-4 rounded-xl border-2 text-left transition-all',
-                          node.status === 'locked' && !canUnlockThis && 'opacity-50 cursor-not-allowed'
-                        )}
-                        style={{
-                          background: `${color}08`,
-                          borderColor: `${color}30`,
-                        }}
-                      >
+                      <button key={node.id} onClick={() => { if (canUnlockThis) onUnlockNode(node.id); else if (node.status === 'unlocked') onActivateNode(node.id); }} disabled={node.status === 'locked' && !canUnlockThis} className={clsx('p-4 rounded-xl text-left transition-all duration-300', node.status === 'locked' && !canUnlockThis && 'opacity-40 cursor-not-allowed', (canUnlockThis || node.status === 'unlocked') && 'hover:scale-[1.02] active:scale-[0.98]')} style={{ background: cfg.fill }}>
                         <div className="flex items-center gap-3">
-                          <div 
-                            className="w-10 h-10 rounded-lg flex items-center justify-center"
-                            style={{ background: `${color}15` }}
-                          >
-                            <PolicyNodeIcon icon={node.icon} className="w-5 h-5" style={{ color }} />
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${cfg.color}20` }}>
+                            <PolicyNodeIcon icon={node.icon} className="w-5 h-5" style={{ color: cfg.color }} />
                           </div>
-                          <div className="flex-1">
-                            <div className="text-sm font-medium" style={{ color }}>{node.name}</div>
-                            <div className="text-[10px]" style={{ color: theme.text.muted }}>{node.description}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[14px] font-semibold truncate" style={{ color: cfg.color }}>{node.name}</div>
+                            <div className="text-[11px] truncate" style={{ color: theme.text.muted }}>{node.description}</div>
                           </div>
-                          {node.status === 'locked' && <Lock className="w-4 h-4" style={{ color: theme.text.muted }} />}
-                          {node.status === 'active' && <CheckCircle2 className="w-4 h-4" style={{ color }} />}
+                          {node.status === 'locked' && <Lock className="w-4 h-4 flex-shrink-0" style={{ color: theme.text.muted }} />}
+                          {node.status === 'active' && <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: cfg.color }} />}
                         </div>
                       </button>
                     );
@@ -2315,88 +1795,7 @@ const PolicyTreePanel = memo(({ nodes, dailyUnlockUsed, onUnlockNode, onActivate
           </div>
         </div>
       )}
-    </GlassCard>
-  );
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// SETTINGS PANEL
-// ═══════════════════════════════════════════════════════════════════════════════
-
-const SettingsPanel = memo(({ audioEnabled, onAudioToggle, notificationPermission, onRequestNotification }) => {
-  const { theme } = useTheme();
-  const [expanded, setExpanded] = useState(false);
-  
-  return (
-    <GlassCard className="p-4" glowColor="none" intensity="subtle">
-      <button 
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between"
-      >
-        <div className="flex items-center gap-2">
-          <Settings className="w-4 h-4" style={{ color: theme.text.muted }} />
-          <span className="text-xs uppercase tracking-wider" style={{ color: theme.text.muted }}>Settings</span>
-        </div>
-        <ChevronDown 
-          className={clsx('w-4 h-4 transition-transform', expanded && 'rotate-180')}
-          style={{ color: theme.text.muted }}
-        />
-      </button>
-      
-      {expanded && (
-        <div className="mt-4 space-y-3 animate-fadeIn">
-          {/* Audio */}
-          <div 
-            className="flex items-center justify-between p-3 rounded-lg"
-            style={{ background: theme.bg.card }}
-          >
-            <div className="flex items-center gap-3">
-              {audioEnabled ? (
-                <Volume2 className="w-4 h-4" style={{ color: theme.accent.emerald }} />
-              ) : (
-                <VolumeX className="w-4 h-4" style={{ color: theme.text.muted }} />
-              )}
-              <span className="text-sm" style={{ color: theme.text.secondary }}>音效</span>
-            </div>
-            <button
-              onClick={onAudioToggle}
-              className="w-12 h-6 rounded-full transition-colors relative"
-              style={{ background: audioEnabled ? theme.accent.emerald : theme.border.primary }}
-            >
-              <div 
-                className="absolute top-1 w-4 h-4 rounded-full bg-white transition-transform"
-                style={{ transform: audioEnabled ? 'translateX(26px)' : 'translateX(4px)' }}
-              />
-            </button>
-          </div>
-          
-          {/* Notifications */}
-          <div 
-            className="flex items-center justify-between p-3 rounded-lg"
-            style={{ background: theme.bg.card }}
-          >
-            <div className="flex items-center gap-3">
-              <Bell 
-                className="w-4 h-4" 
-                style={{ color: notificationPermission === 'granted' ? theme.accent.emerald : theme.text.muted }}
-              />
-              <span className="text-sm" style={{ color: theme.text.secondary }}>通知</span>
-            </div>
-            {notificationPermission === 'granted' ? (
-              <span className="text-xs" style={{ color: theme.accent.emerald }}>已启用</span>
-            ) : (
-              <button
-                onClick={onRequestNotification}
-                className="text-xs"
-                style={{ color: theme.accent.cyan }}
-              >
-                启用
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </GlassCard>
+    </AppleCard>
   );
 });
 
@@ -2404,9 +1803,10 @@ const SettingsPanel = memo(({ audioEnabled, onAudioToggle, notificationPermissio
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const TacticalControlSystemInner = () => {
+const FocusProInner = () => {
   const { theme, isDark } = useTheme();
   const { notify } = useNotifications();
+  const { config } = useConfig();
   
   // State
   const [time, setTime] = useState(new Date());
@@ -2420,10 +1820,10 @@ const TacticalControlSystemInner = () => {
   const [activeMissionId, setActiveMissionId] = useState(null);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [isBreakMode, setIsBreakMode] = useState(false);
-  const [focusTimeRemaining, setFocusTimeRemaining] = useState(CONFIG.FOCUS_TIME);
-  const [breakTimeRemaining, setBreakTimeRemaining] = useState(CONFIG.BREAK_TIME);
+  const [focusTimeRemaining, setFocusTimeRemaining] = useState(config.FOCUS_TIME);
+  const [breakTimeRemaining, setBreakTimeRemaining] = useState(config.BREAK_TIME);
   const [isDelayActive, setIsDelayActive] = useState(false);
-  const [delayTimeRemaining, setDelayTimeRemaining] = useState(CONFIG.DELAY_PROTOCOL_TIME);
+  const [delayTimeRemaining, setDelayTimeRemaining] = useState(config.DELAY_PROTOCOL_TIME);
   const [tribunalOpen, setTribunalOpen] = useState(false);
   const [currentViolation, setCurrentViolation] = useState(null);
   const [policyNodes, setPolicyNodes] = useState(DEFAULT_POLICY_TREE);
@@ -2435,9 +1835,9 @@ const TacticalControlSystemInner = () => {
   
   const { enabled: audioEnabled, setEnabled: setAudioEnabled, playSound } = useAudio();
   const { permission: pwaPermission, requestPermission, sendNotification } = usePWANotifications();
+  const { swReady, startFocusNotification, syncTime, updateState, stopFocusNotification, completeFocusNotification, startDelayNotification } = useServiceWorker();
   
   const focusStartTimeRef = useRef(null);
-  
   const purity = useMemo(() => calculatePurity(exceptions), [exceptions]);
   const activeMission = useMemo(() => missions.find(m => m.id === activeMissionId), [missions, activeMissionId]);
   
@@ -2450,7 +1850,7 @@ const TacticalControlSystemInner = () => {
   // Load data
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('tcs_v3_data');
+      const saved = localStorage.getItem('focus_pro_data');
       if (saved) {
         const data = JSON.parse(saved);
         setCurrentChain(data.currentChain || 0);
@@ -2470,112 +1870,129 @@ const TacticalControlSystemInner = () => {
         if (lastDate !== today) {
           setTodayCompleted(0);
           setDailyUnlockUsed(false);
-          
           const lastDateObj = new Date(lastDate);
           const todayObj = new Date(today);
           const diffDays = Math.floor((todayObj - lastDateObj) / (1000 * 60 * 60 * 24));
-          
           if (diffDays === 1) setStreak(prev => prev + 1);
           else if (diffDays > 1) setStreak(1);
-          
           setRunDays(prev => prev + 1);
         } else {
           setTodayCompleted(data.todayCompleted || 0);
           setDailyUnlockUsed(data.dailyUnlockUsed || false);
         }
       }
-    } catch (e) {
-      console.error('Load failed:', e);
-    }
+    } catch (e) { console.error('Load failed:', e); }
   }, []);
   
   // Save data
   useEffect(() => {
     try {
-      const data = {
-        currentChain, longestChain, totalFocus, exceptions, failures,
-        missions, completedMissions, policyNodes, achievements,
-        runDays, streak, todayCompleted, dailyUnlockUsed,
-        lastDate: new Date().toDateString()
-      };
-      localStorage.setItem('tcs_v3_data', JSON.stringify(data));
-    } catch (e) {
-      console.error('Save failed:', e);
-    }
-  }, [currentChain, longestChain, totalFocus, exceptions, failures, missions, 
-      completedMissions, policyNodes, achievements, runDays, streak, todayCompleted, dailyUnlockUsed]);
+      const data = { currentChain, longestChain, totalFocus, exceptions, failures, missions, completedMissions, policyNodes, achievements, runDays, streak, todayCompleted, dailyUnlockUsed, lastDate: new Date().toDateString() };
+      localStorage.setItem('focus_pro_data', JSON.stringify(data));
+    } catch (e) { console.error('Save failed:', e); }
+  }, [currentChain, longestChain, totalFocus, exceptions, failures, missions, completedMissions, policyNodes, achievements, runDays, streak, todayCompleted, dailyUnlockUsed]);
   
-  // Focus timer
+  // Service Worker event listeners
+  useEffect(() => {
+    const handleComplete = () => { if (isFocusMode) handleCompleteFocus(); };
+    const handlePause = () => { if (isFocusMode) handleInterruptFocus(); };
+    const handleStartNow = () => { if (isDelayActive) handleActivateFocus(); };
+    const handleCancel = () => { setIsDelayActive(false); setDelayTimeRemaining(config.DELAY_PROTOCOL_TIME); stopFocusNotification(); };
+    const handleTimeUp = (e) => {
+      const { isDelay, isBreak: wasBreak } = e.detail || {};
+      if (isDelay) {
+        setIsDelayActive(false);
+        setCurrentViolation({ reason: '预约超时未启动', type: 'delay_timeout' });
+        setTribunalOpen(true);
+        playSound('failure');
+      }
+    };
+    
+    window.addEventListener('sw-complete', handleComplete);
+    window.addEventListener('sw-pause', handlePause);
+    window.addEventListener('sw-start-now', handleStartNow);
+    window.addEventListener('sw-cancel', handleCancel);
+    window.addEventListener('sw-time-up', handleTimeUp);
+    
+    return () => {
+      window.removeEventListener('sw-complete', handleComplete);
+      window.removeEventListener('sw-pause', handlePause);
+      window.removeEventListener('sw-start-now', handleStartNow);
+      window.removeEventListener('sw-cancel', handleCancel);
+      window.removeEventListener('sw-time-up', handleTimeUp);
+    };
+  }, [isFocusMode, isDelayActive, config.DELAY_PROTOCOL_TIME]);
+  
+  // Focus timer with SW sync
   useEffect(() => {
     if (!isFocusMode) return;
     
     const timer = setInterval(() => {
       if (isBreakMode) {
         setBreakTimeRemaining(prev => {
-          if (prev <= 1) {
+          const newTime = prev - 1;
+          if (swReady) syncTime(newTime, true);
+          if (newTime <= 0) {
             setIsBreakMode(false);
-            setFocusTimeRemaining(CONFIG.FOCUS_TIME);
+            setFocusTimeRemaining(config.FOCUS_TIME);
             playSound('activate');
             notify.info('休息结束', '准备开始新一轮专注！');
-            sendNotification('休息结束', { body: '准备开始新一轮专注！' });
-            return CONFIG.BREAK_TIME;
+            if (swReady) updateState(config.FOCUS_TIME, false, activeMission?.text || '专注中...');
+            return config.BREAK_TIME;
           }
-          return prev - 1;
+          return newTime;
         });
       } else {
         setFocusTimeRemaining(prev => {
-          if (prev <= 1) {
+          const newTime = prev - 1;
+          if (swReady) syncTime(newTime, false);
+          if (newTime <= 0) {
             setIsBreakMode(true);
-            setBreakTimeRemaining(CONFIG.BREAK_TIME);
+            setBreakTimeRemaining(config.BREAK_TIME);
             playSound('success');
             notify.success('专注完成！', '休息一下吧');
-            sendNotification('专注完成！', { body: '休息一下吧' });
-            return CONFIG.FOCUS_TIME;
+            if (swReady) updateState(config.BREAK_TIME, true, '休息时间');
+            return config.FOCUS_TIME;
           }
-          if (prev === 60) {
-            playSound('warning');
-            notify.warning('还剩1分钟', '坚持住！');
-          }
-          return prev - 1;
+          if (newTime === 60) { playSound('warning'); notify.warning('还剩1分钟', '坚持住！'); }
+          return newTime;
         });
       }
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [isFocusMode, isBreakMode, playSound, notify, sendNotification]);
+  }, [isFocusMode, isBreakMode, config, playSound, notify, swReady, syncTime, updateState, activeMission]);
   
-  // Delay timer
+  // Delay timer with SW sync
   useEffect(() => {
     if (!isDelayActive) return;
     
     const timer = setInterval(() => {
       setDelayTimeRemaining(prev => {
-        if (prev <= 1) {
+        const newTime = prev - 1;
+        if (swReady) syncTime(newTime, false);
+        if (newTime <= 0) {
           setIsDelayActive(false);
           setCurrentViolation({ reason: '预约超时未启动', type: 'delay_timeout' });
           setTribunalOpen(true);
           playSound('failure');
-          notify.error('预约超时！', '触发审判庭');
-          sendNotification('预约超时！', { body: '触发审判庭' });
-          return CONFIG.DELAY_PROTOCOL_TIME;
+          notify.error('预约超时！', '触发审判');
+          stopFocusNotification();
+          return config.DELAY_PROTOCOL_TIME;
         }
-        if (prev === 180) {
-          playSound('warning');
-          notify.warning('预约倒计时', '还剩3分钟！');
-        }
-        return prev - 1;
+        if (newTime === 180) { playSound('warning'); notify.warning('预约倒计时', '还剩3分钟！'); }
+        return newTime;
       });
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [isDelayActive, playSound, notify, sendNotification]);
+  }, [isDelayActive, config.DELAY_PROTOCOL_TIME, playSound, notify, swReady, syncTime, stopFocusNotification]);
   
   // Achievement checker
   useEffect(() => {
     const checkAchievements = () => {
       const newAchievements = { ...achievements };
       let hasNew = false;
-      
       const checks = [
         { key: 'FIRST_FOCUS', condition: totalFocus >= 1 },
         { key: 'CHAIN_10', condition: currentChain >= 10 },
@@ -2587,22 +2004,16 @@ const TacticalControlSystemInner = () => {
         { key: 'PURITY_100', condition: purity === 100 && totalFocus >= 25 },
         { key: 'NO_EXCEPTIONS', condition: exceptions.length === 0 && totalFocus >= 50 },
       ];
-      
       checks.forEach(({ key, condition }) => {
         if (condition && !achievements[key]) {
           newAchievements[key] = { unlockedAt: new Date() };
           hasNew = true;
           const achievement = ACHIEVEMENTS[key];
-          if (achievement) {
-            playSound('unlock');
-            notify.achievement(`🏆 ${achievement.name}`, achievement.desc);
-          }
+          if (achievement) { playSound('unlock'); notify.achievement(`🏆 ${achievement.name}`, achievement.desc); }
         }
       });
-      
       if (hasNew) setAchievements(newAchievements);
     };
-    
     checkAchievements();
   }, [currentChain, totalFocus, streak, purity, policyNodes, exceptions, achievements, playSound, notify]);
   
@@ -2610,42 +2021,46 @@ const TacticalControlSystemInner = () => {
   const handleActivateFocus = useCallback(() => {
     setIsFocusMode(true);
     setIsBreakMode(false);
-    setFocusTimeRemaining(CONFIG.FOCUS_TIME);
+    setFocusTimeRemaining(config.FOCUS_TIME);
     setIsDelayActive(false);
-    setDelayTimeRemaining(CONFIG.DELAY_PROTOCOL_TIME);
+    setDelayTimeRemaining(config.DELAY_PROTOCOL_TIME);
     focusStartTimeRef.current = Date.now();
     playSound('activate');
-    notify.success('专注模式启动', `Chain #${currentChain + 1}`);
-  }, [playSound, notify, currentChain]);
+    notify.success('专注模式启动', `第 ${currentChain + 1} 次专注`);
+    
+    if (swReady && pwaPermission === 'granted') {
+      startFocusNotification(config.FOCUS_TIME, false, currentChain + 1, activeMission?.text || '专注中...');
+    }
+  }, [config, playSound, notify, currentChain, swReady, pwaPermission, startFocusNotification, activeMission]);
   
   const handleLaunchDelay = useCallback(() => {
     setIsDelayActive(true);
-    setDelayTimeRemaining(CONFIG.DELAY_PROTOCOL_TIME);
+    setDelayTimeRemaining(config.DELAY_PROTOCOL_TIME);
     playSound('warning');
-    notify.info('预约已启动', '15分钟内必须开始专注');
-    sendNotification('预约已启动', { body: '15分钟内必须开始专注' });
-  }, [playSound, notify, sendNotification]);
+    notify.info('预约已启动', `${formatTimeVerbose(config.DELAY_PROTOCOL_TIME)}内必须开始专注`);
+    
+    if (swReady && pwaPermission === 'granted') {
+      startDelayNotification(config.DELAY_PROTOCOL_TIME, currentChain + 1);
+    }
+  }, [config.DELAY_PROTOCOL_TIME, playSound, notify, swReady, pwaPermission, startDelayNotification, currentChain]);
   
   const handleInterruptFocus = useCallback(() => {
-    const elapsed = focusStartTimeRef.current 
-      ? Math.floor((Date.now() - focusStartTimeRef.current) / 1000) : 0;
-    
+    const elapsed = focusStartTimeRef.current ? Math.floor((Date.now() - focusStartTimeRef.current) / 1000) : 0;
     setIsFocusMode(false);
     setIsBreakMode(false);
     setCurrentViolation({ reason: '专注模式中断', type: 'focus_interrupt', duration: elapsed });
     setTribunalOpen(true);
     playSound('failure');
-    notify.error('专注中断', '触发审判庭');
-  }, [playSound, notify]);
+    notify.error('专注中断', '触发审判');
+    if (swReady) stopFocusNotification();
+  }, [playSound, notify, swReady, stopFocusNotification]);
   
   const handleCompleteFocus = useCallback(() => {
     setIsFocusMode(false);
     setIsBreakMode(false);
-    
     const newChain = currentChain + 1;
     setCurrentChain(newChain);
     setTotalFocus(prev => prev + 1);
-    
     if (newChain > longestChain) setLongestChain(newChain);
     
     if (activeMissionId) {
@@ -2659,19 +2074,21 @@ const TacticalControlSystemInner = () => {
     }
     
     playSound('success');
-    notify.success('任务完成！', `Chain #${newChain}`);
-    sendNotification('任务完成！', { body: `Chain #${newChain}` });
-  }, [currentChain, longestChain, activeMissionId, missions, playSound, notify, sendNotification]);
+    notify.success('任务完成！', `第 ${newChain} 次专注`);
+    if (swReady) completeFocusNotification(newChain);
+  }, [currentChain, longestChain, activeMissionId, missions, playSound, notify, swReady, completeFocusNotification]);
   
   const handleToggleBreak = useCallback(() => {
     if (isBreakMode) {
       setIsBreakMode(false);
-      setFocusTimeRemaining(CONFIG.FOCUS_TIME);
+      setFocusTimeRemaining(config.FOCUS_TIME);
+      if (swReady) updateState(config.FOCUS_TIME, false, activeMission?.text || '专注中...');
     } else {
       setIsBreakMode(true);
-      setBreakTimeRemaining(CONFIG.BREAK_TIME);
+      setBreakTimeRemaining(config.BREAK_TIME);
+      if (swReady) updateState(config.BREAK_TIME, true, '休息时间');
     }
-  }, [isBreakMode]);
+  }, [isBreakMode, config, swReady, updateState, activeMission]);
   
   const handleAdmitDefeat = useCallback(() => {
     setFailures(prev => [...prev, { chainBroken: currentChain, date: new Date(), reason: '承认失败' }]);
@@ -2687,304 +2104,138 @@ const TacticalControlSystemInner = () => {
     setTribunalOpen(false);
     setCurrentViolation(null);
     playSound('warning');
-    notify.warning('法律已修改', `「${name}」现为合法例外`);
+    notify.warning('例外已添加', `「${name}」现为合法例外`);
   }, [currentChain, playSound, notify]);
   
   const handleAddMission = useCallback((mission) => setMissions(prev => [...prev, mission]), []);
-  
-  const handleStartMission = useCallback((id) => {
-    setActiveMissionId(id);
-    handleActivateFocus();
-  }, [handleActivateFocus]);
-  
-  const handleCompleteMission = useCallback((id) => {
-    const mission = missions.find(m => m.id === id);
-    if (mission) {
-      setCompletedMissions(prev => [...prev, { ...mission, completedAt: new Date() }]);
-      setMissions(prev => prev.filter(m => m.id !== id));
-      setTodayCompleted(prev => prev + 1);
-      if (id === activeMissionId) handleCompleteFocus();
-    }
-  }, [missions, activeMissionId, handleCompleteFocus]);
-  
-  const handleDeleteMission = useCallback((id) => {
-    setMissions(prev => prev.filter(m => m.id !== id));
-    if (id === activeMissionId) setActiveMissionId(null);
-  }, [activeMissionId]);
-  
-  const handleDeleteCompletedMission = useCallback((id) => {
-    setCompletedMissions(prev => prev.filter(m => m.id !== id));
-  }, []);
-  
-  const handleUnlockNode = useCallback((id) => {
-    setPolicyNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'unlocked' } : n));
-    setDailyUnlockUsed(true);
-    playSound('unlock');
-    notify.success('节点已解锁', '明天可以继续解锁');
-  }, [playSound, notify]);
-  
-  const handleActivateNode = useCallback((id) => {
-    setPolicyNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'active' } : n));
-    playSound('success');
-    notify.success('国策已激活', '开始执行！');
-  }, [playSound, notify]);
+  const handleStartMission = useCallback((id) => { setActiveMissionId(id); handleActivateFocus(); }, [handleActivateFocus]);
+  const handleCompleteMission = useCallback((id) => { const mission = missions.find(m => m.id === id); if (mission) { setCompletedMissions(prev => [...prev, { ...mission, completedAt: new Date() }]); setMissions(prev => prev.filter(m => m.id !== id)); setTodayCompleted(prev => prev + 1); if (id === activeMissionId) handleCompleteFocus(); } }, [missions, activeMissionId, handleCompleteFocus]);
+  const handleDeleteMission = useCallback((id) => { setMissions(prev => prev.filter(m => m.id !== id)); if (id === activeMissionId) setActiveMissionId(null); }, [activeMissionId]);
+  const handleDeleteCompletedMission = useCallback((id) => setCompletedMissions(prev => prev.filter(m => m.id !== id)), []);
+  const handleUnlockNode = useCallback((id) => { setPolicyNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'unlocked' } : n)); setDailyUnlockUsed(true); playSound('unlock'); notify.success('节点已解锁', '明天可以继续解锁'); }, [playSound, notify]);
+  const handleActivateNode = useCallback((id) => { setPolicyNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'active' } : n)); playSound('success'); notify.success('习惯已激活', '开始执行！'); }, [playSound, notify]);
   
   return (
-    <div 
-      className="min-h-screen transition-colors duration-500"
-      style={{ 
-        background: theme.bg.primary,
-        color: theme.text.primary,
-      }}
-    >
-      {/* Background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div 
-          className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-[120px]"
-          style={{ background: theme.gradient.orb1 }}
-        />
-        <div 
-          className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-[100px]"
-          style={{ background: theme.gradient.orb2 }}
-        />
-        <div 
-          className="absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: `linear-gradient(${theme.text.muted} 1px, transparent 1px), linear-gradient(90deg, ${theme.text.muted} 1px, transparent 1px)`,
-            backgroundSize: '60px 60px'
-          }}
-        />
-      </div>
+    <div className="min-h-screen transition-colors duration-500" style={{ background: theme.bg.primary, fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif' }}>
+      <FocusModeOverlay active={isFocusMode} chainNumber={currentChain + 1} taskName={activeMission?.text} timeRemaining={isBreakMode ? breakTimeRemaining : focusTimeRemaining} totalTime={isBreakMode ? config.BREAK_TIME : config.FOCUS_TIME} isBreak={isBreakMode} onInterrupt={handleInterruptFocus} onComplete={handleCompleteFocus} onToggleBreak={handleToggleBreak} />
+      <TribunalModal isOpen={tribunalOpen} violation={currentViolation} currentChain={currentChain} exceptions={exceptions} purity={purity} onAdmitDefeat={handleAdmitDefeat} onModifyLaw={handleModifyLaw} onClose={() => setTribunalOpen(false)} />
       
-      {/* Focus overlay */}
-      <FocusModeOverlay
-        active={isFocusMode}
-        chainNumber={currentChain + 1}
-        taskName={activeMission?.text}
-        timeRemaining={isBreakMode ? breakTimeRemaining : focusTimeRemaining}
-        isBreak={isBreakMode}
-        onInterrupt={handleInterruptFocus}
-        onComplete={handleCompleteFocus}
-        onToggleBreak={handleToggleBreak}
-      />
-      
-      {/* Tribunal */}
-      <TribunalModal
-        isOpen={tribunalOpen}
-        violation={currentViolation}
-        currentChain={currentChain}
-        exceptions={exceptions}
-        purity={purity}
-        onAdmitDefeat={handleAdmitDefeat}
-        onModifyLaw={handleModifyLaw}
-        onClose={() => setTribunalOpen(false)}
-      />
-      
-      {/* Main content */}
-      <div className="relative max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-5 py-8">
         {/* Header */}
-        <header className="mb-10">
+        <header className="mb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div 
-                className="w-12 h-12 rounded-2xl border flex items-center justify-center backdrop-blur-sm"
-                style={{
-                  background: `linear-gradient(135deg, ${theme.accent.emerald}20, ${theme.accent.cyan}20)`,
-                  borderColor: theme.border.primary,
-                }}
-              >
-                <Crosshair className="w-6 h-6" style={{ color: theme.accent.emerald }} />
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${theme.accent.blue}, ${theme.accent.indigo})`, boxShadow: theme.shadow.glow }}>
+                <Target className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-light tracking-tight">
-                  <GradientText>Tactical Control System</GradientText>
-                </h1>
-                <p className="text-sm" style={{ color: theme.text.muted }}>
-                  v3.2 · 硬核自律指挥终端
-                </p>
+                <h1 className="text-2xl font-semibold tracking-tight" style={{ color: theme.text.primary }}>Focus Pro</h1>
+                <p className="text-[13px]" style={{ color: theme.text.tertiary }}>专注力管理系统</p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-4">
-              {/* Quick stats */}
+            <div className="flex items-center gap-5">
               <div className="hidden md:flex items-center gap-6">
                 <div className="text-center">
-                  <div className="text-2xl font-light" style={{ color: theme.accent.emerald }}>#{currentChain}</div>
-                  <div className="text-[10px] uppercase tracking-wider" style={{ color: theme.text.muted }}>Chain</div>
+                  <div className="text-2xl font-semibold tabular-nums" style={{ color: theme.accent.blue }}>{currentChain}</div>
+                  <div className="text-[11px] font-medium uppercase tracking-wide" style={{ color: theme.text.muted }}>连击</div>
                 </div>
-                <div className="w-px h-8" style={{ background: theme.border.primary }} />
+                <div className="w-px h-10" style={{ background: theme.border.primary }} />
                 <div className="text-center">
-                  <div 
-                    className="text-2xl font-light"
-                    style={{ color: purity > 70 ? theme.accent.emerald : purity > 40 ? theme.accent.amber : theme.accent.rose }}
-                  >
-                    {purity}%
-                  </div>
-                  <div className="text-[10px] uppercase tracking-wider" style={{ color: theme.text.muted }}>Purity</div>
+                  <div className="text-2xl font-semibold tabular-nums" style={{ color: purity > 70 ? theme.accent.green : purity > 40 ? theme.accent.orange : theme.accent.red }}>{purity}%</div>
+                  <div className="text-[11px] font-medium uppercase tracking-wide" style={{ color: theme.text.muted }}>纯净度</div>
                 </div>
               </div>
-              
               <ThemeToggle />
             </div>
           </div>
         </header>
         
-        {/* Main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left sidebar */}
-          <div className="lg:col-span-4 space-y-6">
-            <ChainCounter 
-              current={currentChain} 
-              longest={longestChain} 
-              purity={purity}
-              totalFocus={totalFocus}
-            />
-            <SystemStatus 
-              time={time}
-              runDays={runDays}
-              todayCompleted={todayCompleted}
-              streak={streak}
-            />
-            <PrecedentDatabase 
-              exceptions={exceptions}
-              failures={failures}
-              purity={purity}
-            />
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Left Sidebar */}
+          <div className="lg:col-span-4 space-y-5">
+            <ChainCounter current={currentChain} longest={longestChain} purity={purity} totalFocus={totalFocus} />
+            <SystemStatus time={time} runDays={runDays} todayCompleted={todayCompleted} streak={streak} />
+            <PrecedentDatabase exceptions={exceptions} failures={failures} purity={purity} />
             <AchievementsPanel unlockedAchievements={achievements} />
-            <SettingsPanel
-              audioEnabled={audioEnabled}
-              onAudioToggle={() => setAudioEnabled(!audioEnabled)}
-              notificationPermission={pwaPermission}
-              onRequestNotification={requestPermission}
-            />
+            <SettingsPanel audioEnabled={audioEnabled} onAudioToggle={() => setAudioEnabled(!audioEnabled)} notificationPermission={pwaPermission} onRequestNotification={requestPermission} />
           </div>
           
-          {/* Main content */}
-          <div className="lg:col-span-8 space-y-6">
-            {/* Control panel */}
-            <GlassCard className="p-8" glowColor="emerald" intensity="strong">
-              <div className="flex items-center gap-3 mb-8">
-                <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: `${theme.accent.emerald}15` }}
-                >
-                  <Zap className="w-5 h-5" style={{ color: theme.accent.emerald }} />
+          {/* Main Content */}
+          <div className="lg:col-span-8 space-y-5">
+            <AppleCard>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: theme.fill.blue }}>
+                  <Zap className="w-5 h-5" style={{ color: theme.accent.blue }} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-medium" style={{ color: theme.text.primary }}>Control Panel</h2>
-                  <p className="text-xs" style={{ color: theme.text.muted }}>战术控制面板</p>
+                  <h2 className="text-[17px] font-semibold" style={{ color: theme.text.primary }}>控制中心</h2>
+                  <p className="text-[12px]" style={{ color: theme.text.tertiary }}>Control Panel</p>
                 </div>
               </div>
-              
               <div className="space-y-4">
-                <SacredSwitch
-                  onActivate={handleActivateFocus}
-                  disabled={isFocusMode || isDelayActive}
-                  currentChain={currentChain}
-                  exceptions={exceptions}
-                />
-                <DelayProtocol
-                  onLaunch={handleLaunchDelay}
-                  onActivate={handleActivateFocus}
-                  active={isDelayActive}
-                  timeRemaining={delayTimeRemaining}
-                  disabled={isFocusMode}
-                />
+                <SacredSwitch onActivate={handleActivateFocus} disabled={isFocusMode || isDelayActive} currentChain={currentChain} exceptions={exceptions} focusTime={config.FOCUS_TIME} />
+                <DelayProtocol onLaunch={handleLaunchDelay} onActivate={handleActivateFocus} active={isDelayActive} timeRemaining={delayTimeRemaining} disabled={isFocusMode} delayTime={config.DELAY_PROTOCOL_TIME} />
               </div>
-            </GlassCard>
+            </AppleCard>
             
-            {/* Missions */}
-            <GlassCard className="p-8" glowColor="cyan">
+            <AppleCard>
               <AddMissionForm onAdd={handleAddMission} />
-              <div className="mt-8">
-                <MissionQueue
-                  missions={missions}
-                  activeMissionId={activeMissionId}
-                  onStart={handleStartMission}
-                  onComplete={handleCompleteMission}
-                  onDelete={handleDeleteMission}
-                />
-                <CompletedMissions
-                  missions={completedMissions}
-                  onDelete={handleDeleteCompletedMission}
-                />
+              <div className="mt-6">
+                <MissionQueue missions={missions} activeMissionId={activeMissionId} onStart={handleStartMission} onComplete={handleCompleteMission} onDelete={handleDeleteMission} />
+                <CompletedMissions missions={completedMissions} onDelete={handleDeleteCompletedMission} />
               </div>
-            </GlassCard>
+            </AppleCard>
             
-            {/* Policy tree */}
-            <PolicyTreePanel
-              nodes={policyNodes}
-              dailyUnlockUsed={dailyUnlockUsed}
-              onUnlockNode={handleUnlockNode}
-              onActivateNode={handleActivateNode}
-            />
+            <PolicyTreePanel nodes={policyNodes} dailyUnlockUsed={dailyUnlockUsed} onUnlockNode={handleUnlockNode} onActivateNode={handleActivateNode} />
           </div>
         </div>
         
         {/* Footer */}
-        <footer 
-          className="mt-12 pt-6 border-t"
-          style={{ borderColor: theme.border.secondary }}
-        >
-          <div className="flex items-center justify-between text-xs" style={{ color: theme.text.muted }}>
-            <span>Tactical Control System v3.2</span>
-            <span>Chain #{currentChain} · Purity {purity}% · Day {runDays}</span>
-          </div>
+        <footer className="mt-10 pt-5 border-t text-center" style={{ borderColor: theme.border.secondary }}>
+          <p className="text-[12px]" style={{ color: theme.text.muted }}>Focus Pro · 连击 #{currentChain} · 纯净度 {purity}% · 第 {runDays} 天</p>
         </footer>
       </div>
       
-      {/* Notification container */}
       <NotificationContainer />
       
-      {/* Global styles */}
+      {/* Global Styles */}
       <style jsx global>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-8px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes scaleIn {
-          from { opacity: 0; transform: scale(0.95); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(100%); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes shrink {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-        @keyframes gradient {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
-        .animate-scaleIn { animation: scaleIn 0.3s ease-out; }
-        .animate-slideIn { animation: slideIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes shrink { from { width: 100%; } to { width: 0%; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-fadeIn { animation: fadeIn 0.25s ease-out; }
+        .animate-scaleIn { animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .animate-slideIn { animation: slideIn 0.35s ease-out; }
         .animate-shrink { animation: shrink linear forwards; }
-        .animate-gradient { animation: gradient 3s ease infinite; }
-        
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        .animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.3); }
-        
-        *:focus-visible { outline: 2px solid rgba(16, 185, 129, 0.5); outline-offset: 2px; }
-        
-        ::selection { background: rgba(16, 185, 129, 0.3); }
+        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.5); }
+        *:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3); }
+        ::selection { background: rgba(0, 122, 255, 0.2); }
+        * { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
       `}</style>
     </div>
   );
 };
 
-// Main export with providers
-const TacticalControlSystemV3 = () => (
-  <ThemeProvider>
-    <NotificationProvider>
-      <TacticalControlSystemInner />
-    </NotificationProvider>
-  </ThemeProvider>
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN EXPORT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const FocusPro = () => (
+  <ConfigProvider>
+    <ThemeProvider>
+      <NotificationProvider>
+        <FocusProInner />
+      </NotificationProvider>
+    </ThemeProvider>
+  </ConfigProvider>
 );
 
-export default TacticalControlSystemV3;
+export default FocusPro;
