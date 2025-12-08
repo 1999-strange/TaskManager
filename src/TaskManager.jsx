@@ -461,7 +461,6 @@ const useServiceWorker = () => {
         console.error('Service Worker 注册失败:', error);
       });
     
-    // 监听来自 SW 的消息
     const handleMessage = (event) => {
       const { type, data } = event.data;
       switch (type) {
@@ -678,7 +677,6 @@ const useAudio = () => {
   
   return { enabled, setEnabled, playSound };
 };
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // APPLE-STYLE UI COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -777,6 +775,7 @@ const NotificationContainer = memo(() => {
     </div>
   );
 });
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // TIME PICKER COMPONENT - Apple Style
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -809,7 +808,6 @@ const TimePicker = memo(({ value, onChange, presets, label, min = 60, max = 7200
         </span>
       </div>
       
-      {/* Presets */}
       <div className="flex flex-wrap gap-2">
         {presets.map((preset) => (
           <button
@@ -837,7 +835,6 @@ const TimePicker = memo(({ value, onChange, presets, label, min = 60, max = 7200
         </button>
       </div>
       
-      {/* Custom Input */}
       {showCustom && (
         <div className="flex items-center gap-3 p-4 rounded-xl animate-fadeIn" style={{ background: theme.bg.tertiary }}>
           <div className="flex items-center gap-2">
@@ -1206,7 +1203,6 @@ const SettingsPanel = memo(({ audioEnabled, onAudioToggle, notificationPermissio
       
       {expanded && (
         <div className="px-5 pb-5 space-y-3 animate-fadeIn">
-          {/* Audio Toggle */}
           <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: theme.bg.tertiary }}>
             <div className="flex items-center gap-3">
               {audioEnabled ? <Volume2 className="w-5 h-5" style={{ color: theme.accent.blue }} /> : <VolumeX className="w-5 h-5" style={{ color: theme.text.muted }} />}
@@ -1217,7 +1213,6 @@ const SettingsPanel = memo(({ audioEnabled, onAudioToggle, notificationPermissio
             </button>
           </div>
           
-          {/* Notifications */}
           <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: theme.bg.tertiary }}>
             <div className="flex items-center gap-3">
               <Bell className="w-5 h-5" style={{ color: notificationPermission === 'granted' ? theme.accent.blue : theme.text.muted }} />
@@ -1230,7 +1225,6 @@ const SettingsPanel = memo(({ audioEnabled, onAudioToggle, notificationPermissio
             )}
           </div>
           
-          {/* Time Settings Toggle */}
           <button onClick={() => setShowTimeSettings(!showTimeSettings)} className="w-full flex items-center justify-between p-4 rounded-xl transition-all" style={{ background: theme.bg.tertiary }}>
             <div className="flex items-center gap-3">
               <Timer className="w-5 h-5" style={{ color: theme.accent.indigo }} />
@@ -1239,7 +1233,6 @@ const SettingsPanel = memo(({ audioEnabled, onAudioToggle, notificationPermissio
             <ChevronRight className={clsx('w-5 h-5 transition-transform duration-200', showTimeSettings && 'rotate-90')} style={{ color: theme.text.muted }} />
           </button>
           
-          {/* Time Settings Panel */}
           {showTimeSettings && (
             <div className="p-4 rounded-xl space-y-5 animate-fadeIn" style={{ background: theme.fill.indigo }}>
               <TimePicker
@@ -1275,7 +1268,6 @@ const SettingsPanel = memo(({ audioEnabled, onAudioToggle, notificationPermissio
               
               <div className="h-px" style={{ background: theme.border.secondary }} />
               
-              {/* Reset Button */}
               <button onClick={resetConfig} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]" style={{ background: theme.bg.secondary, color: theme.text.tertiary }}>
                 <RotateCcw className="w-4 h-4" />
                 <span className="text-[13px] font-medium">恢复默认设置</span>
@@ -1485,7 +1477,7 @@ const TribunalModal = memo(({ isOpen, violation, currentChain, exceptions, purit
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// FOCUS MODE OVERLAY - Apple Style
+// FOCUS MODE OVERLAY - Apple Style  
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const FocusModeOverlay = memo(({ active, chainNumber, taskName, timeRemaining, totalTime, isBreak, onInterrupt, onComplete, onToggleBreak }) => {
@@ -1800,7 +1792,7 @@ const PolicyTreePanel = memo(({ nodes, dailyUnlockUsed, onUnlockNode, onActivate
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// MAIN COMPONENT
+// MAIN COMPONENT - 核心修复：基于时间戳的计时器
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const FocusProInner = () => {
@@ -1837,7 +1829,12 @@ const FocusProInner = () => {
   const { permission: pwaPermission, requestPermission, sendNotification } = usePWANotifications();
   const { swReady, startFocusNotification, syncTime, updateState, stopFocusNotification, completeFocusNotification, startDelayNotification } = useServiceWorker();
   
+  // ⭐ 核心修复：使用 ref 存储时间戳
   const focusStartTimeRef = useRef(null);
+  const focusEndTimeRef = useRef(null);
+  const delayStartTimeRef = useRef(null);
+  const delayEndTimeRef = useRef(null);
+  
   const purity = useMemo(() => calculatePurity(exceptions), [exceptions]);
   const activeMission = useMemo(() => missions.find(m => m.id === activeMissionId), [missions, activeMissionId]);
   
@@ -1880,6 +1877,20 @@ const FocusProInner = () => {
           setTodayCompleted(data.todayCompleted || 0);
           setDailyUnlockUsed(data.dailyUnlockUsed || false);
         }
+        
+        // ⭐ 恢复进行中的计时器
+        if (data.focusInProgress) {
+          setIsFocusMode(true);
+          setIsBreakMode(data.isBreakMode || false);
+          focusStartTimeRef.current = data.focusStartTime;
+          focusEndTimeRef.current = data.focusEndTime;
+          setActiveMissionId(data.activeMissionId);
+        }
+        if (data.delayInProgress) {
+          setIsDelayActive(true);
+          delayStartTimeRef.current = data.delayStartTime;
+          delayEndTimeRef.current = data.delayEndTime;
+        }
       }
     } catch (e) { console.error('Load failed:', e); }
   }, []);
@@ -1887,21 +1898,95 @@ const FocusProInner = () => {
   // Save data
   useEffect(() => {
     try {
-      const data = { currentChain, longestChain, totalFocus, exceptions, failures, missions, completedMissions, policyNodes, achievements, runDays, streak, todayCompleted, dailyUnlockUsed, lastDate: new Date().toDateString() };
+      const data = { 
+        currentChain, longestChain, totalFocus, exceptions, failures, missions, completedMissions, policyNodes, achievements, runDays, streak, todayCompleted, dailyUnlockUsed, lastDate: new Date().toDateString(),
+        // ⭐ 保存计时器状态
+        focusInProgress: isFocusMode,
+        isBreakMode,
+        focusStartTime: focusStartTimeRef.current,
+        focusEndTime: focusEndTimeRef.current,
+        activeMissionId,
+        delayInProgress: isDelayActive,
+        delayStartTime: delayStartTimeRef.current,
+        delayEndTime: delayEndTimeRef.current,
+      };
       localStorage.setItem('focus_pro_data', JSON.stringify(data));
     } catch (e) { console.error('Save failed:', e); }
-  }, [currentChain, longestChain, totalFocus, exceptions, failures, missions, completedMissions, policyNodes, achievements, runDays, streak, todayCompleted, dailyUnlockUsed]);
+  }, [currentChain, longestChain, totalFocus, exceptions, failures, missions, completedMissions, policyNodes, achievements, runDays, streak, todayCompleted, dailyUnlockUsed, isFocusMode, isBreakMode, activeMissionId, isDelayActive]);
+  
+  // ⭐ 核心修复：页面可见性变化时重新计算剩余时间
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const now = Date.now();
+        
+        // 重新计算专注计时器
+        if (isFocusMode && focusEndTimeRef.current) {
+          const remaining = Math.max(0, Math.floor((focusEndTimeRef.current - now) / 1000));
+          if (isBreakMode) {
+            setBreakTimeRemaining(remaining);
+          } else {
+            setFocusTimeRemaining(remaining);
+          }
+          
+          // 如果时间已到，触发完成
+          if (remaining === 0) {
+            if (isBreakMode) {
+              setIsBreakMode(false);
+              setFocusTimeRemaining(config.FOCUS_TIME);
+              focusEndTimeRef.current = Date.now() + config.FOCUS_TIME * 1000;
+              playSound('activate');
+              notify.info('休息结束', '准备开始新一轮专注！');
+            } else {
+              setIsBreakMode(true);
+              setBreakTimeRemaining(config.BREAK_TIME);
+              focusEndTimeRef.current = Date.now() + config.BREAK_TIME * 1000;
+              playSound('success');
+              notify.success('专注完成！', '休息一下吧');
+            }
+          }
+        }
+        
+        // 重新计算延迟计时器
+        if (isDelayActive && delayEndTimeRef.current) {
+          const remaining = Math.max(0, Math.floor((delayEndTimeRef.current - now) / 1000));
+          setDelayTimeRemaining(remaining);
+          
+          // 如果时间已到，触发超时
+          if (remaining === 0) {
+            setIsDelayActive(false);
+            setCurrentViolation({ reason: '预约超时未启动', type: 'delay_timeout' });
+            setTribunalOpen(true);
+            playSound('failure');
+            notify.error('预约超时！', '触发审判');
+            stopFocusNotification();
+          }
+        }
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isFocusMode, isBreakMode, isDelayActive, config, playSound, notify, stopFocusNotification]);
   
   // Service Worker event listeners
   useEffect(() => {
     const handleComplete = () => { if (isFocusMode) handleCompleteFocus(); };
     const handlePause = () => { if (isFocusMode) handleInterruptFocus(); };
     const handleStartNow = () => { if (isDelayActive) handleActivateFocus(); };
-    const handleCancel = () => { setIsDelayActive(false); setDelayTimeRemaining(config.DELAY_PROTOCOL_TIME); stopFocusNotification(); };
+    const handleCancel = () => { 
+      setIsDelayActive(false); 
+      setDelayTimeRemaining(config.DELAY_PROTOCOL_TIME); 
+      delayStartTimeRef.current = null;
+      delayEndTimeRef.current = null;
+      stopFocusNotification(); 
+    };
     const handleTimeUp = (e) => {
       const { isDelay, isBreak: wasBreak } = e.detail || {};
       if (isDelay) {
         setIsDelayActive(false);
+        delayStartTimeRef.current = null;
+        delayEndTimeRef.current = null;
         setCurrentViolation({ reason: '预约超时未启动', type: 'delay_timeout' });
         setTribunalOpen(true);
         playSound('failure');
@@ -1921,68 +2006,76 @@ const FocusProInner = () => {
       window.removeEventListener('sw-cancel', handleCancel);
       window.removeEventListener('sw-time-up', handleTimeUp);
     };
-  }, [isFocusMode, isDelayActive, config.DELAY_PROTOCOL_TIME]);
+  }, [isFocusMode, isDelayActive, config.DELAY_PROTOCOL_TIME, stopFocusNotification, playSound]);
   
-  // Focus timer with SW sync
+  // ⭐ 核心修复：基于时间戳的专注计时器
   useEffect(() => {
-    if (!isFocusMode) return;
+    if (!isFocusMode || !focusEndTimeRef.current) return;
     
     const timer = setInterval(() => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((focusEndTimeRef.current - now) / 1000));
+      
       if (isBreakMode) {
-        setBreakTimeRemaining(prev => {
-          const newTime = prev - 1;
-          if (swReady) syncTime(newTime, true);
-          if (newTime <= 0) {
-            setIsBreakMode(false);
-            setFocusTimeRemaining(config.FOCUS_TIME);
-            playSound('activate');
-            notify.info('休息结束', '准备开始新一轮专注！');
-            if (swReady) updateState(config.FOCUS_TIME, false, activeMission?.text || '专注中...');
-            return config.BREAK_TIME;
-          }
-          return newTime;
-        });
+        setBreakTimeRemaining(remaining);
+        if (swReady) syncTime(remaining, true);
+        
+        if (remaining === 0) {
+          setIsBreakMode(false);
+          setFocusTimeRemaining(config.FOCUS_TIME);
+          focusEndTimeRef.current = now + config.FOCUS_TIME * 1000;
+          playSound('activate');
+          notify.info('休息结束', '准备开始新一轮专注！');
+          if (swReady) updateState(config.FOCUS_TIME, false, activeMission?.text || '专注中...');
+        } else if (remaining === 60) {
+          playSound('warning');
+          notify.warning('还剩1分钟', '休息即将结束');
+        }
       } else {
-        setFocusTimeRemaining(prev => {
-          const newTime = prev - 1;
-          if (swReady) syncTime(newTime, false);
-          if (newTime <= 0) {
-            setIsBreakMode(true);
-            setBreakTimeRemaining(config.BREAK_TIME);
-            playSound('success');
-            notify.success('专注完成！', '休息一下吧');
-            if (swReady) updateState(config.BREAK_TIME, true, '休息时间');
-            return config.FOCUS_TIME;
-          }
-          if (newTime === 60) { playSound('warning'); notify.warning('还剩1分钟', '坚持住！'); }
-          return newTime;
-        });
+        setFocusTimeRemaining(remaining);
+        if (swReady) syncTime(remaining, false);
+        
+        if (remaining === 0) {
+          setIsBreakMode(true);
+          setBreakTimeRemaining(config.BREAK_TIME);
+          focusEndTimeRef.current = now + config.BREAK_TIME * 1000;
+          playSound('success');
+          notify.success('专注完成！', '休息一下吧');
+          if (swReady) updateState(config.BREAK_TIME, true, '休息时间');
+        } else if (remaining === 60) {
+          playSound('warning');
+          notify.warning('还剩1分钟', '坚持住！');
+        }
       }
     }, 1000);
     
     return () => clearInterval(timer);
   }, [isFocusMode, isBreakMode, config, playSound, notify, swReady, syncTime, updateState, activeMission]);
   
-  // Delay timer with SW sync
+  // ⭐ 核心修复：基于时间戳的延迟计时器
   useEffect(() => {
-    if (!isDelayActive) return;
+    if (!isDelayActive || !delayEndTimeRef.current) return;
     
     const timer = setInterval(() => {
-      setDelayTimeRemaining(prev => {
-        const newTime = prev - 1;
-        if (swReady) syncTime(newTime, false);
-        if (newTime <= 0) {
-          setIsDelayActive(false);
-          setCurrentViolation({ reason: '预约超时未启动', type: 'delay_timeout' });
-          setTribunalOpen(true);
-          playSound('failure');
-          notify.error('预约超时！', '触发审判');
-          stopFocusNotification();
-          return config.DELAY_PROTOCOL_TIME;
-        }
-        if (newTime === 180) { playSound('warning'); notify.warning('预约倒计时', '还剩3分钟！'); }
-        return newTime;
-      });
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((delayEndTimeRef.current - now) / 1000));
+      
+      setDelayTimeRemaining(remaining);
+      if (swReady) syncTime(remaining, false);
+      
+      if (remaining === 0) {
+        setIsDelayActive(false);
+        delayStartTimeRef.current = null;
+        delayEndTimeRef.current = null;
+        setCurrentViolation({ reason: '预约超时未启动', type: 'delay_timeout' });
+        setTribunalOpen(true);
+        playSound('failure');
+        notify.error('预约超时！', '触发审判');
+        stopFocusNotification();
+      } else if (remaining === 180) {
+        playSound('warning');
+        notify.warning('预约倒计时', '还剩3分钟！');
+      }
     }, 1000);
     
     return () => clearInterval(timer);
@@ -2017,14 +2110,22 @@ const FocusProInner = () => {
     checkAchievements();
   }, [currentChain, totalFocus, streak, purity, policyNodes, exceptions, achievements, playSound, notify]);
   
-  // Handlers
+  // ⭐ 核心修复：启动专注时设置结束时间戳
   const handleActivateFocus = useCallback(() => {
+    const now = Date.now();
+    const endTime = now + config.FOCUS_TIME * 1000;
+    
     setIsFocusMode(true);
     setIsBreakMode(false);
     setFocusTimeRemaining(config.FOCUS_TIME);
     setIsDelayActive(false);
     setDelayTimeRemaining(config.DELAY_PROTOCOL_TIME);
-    focusStartTimeRef.current = Date.now();
+    
+    focusStartTimeRef.current = now;
+    focusEndTimeRef.current = endTime;
+    delayStartTimeRef.current = null;
+    delayEndTimeRef.current = null;
+    
     playSound('activate');
     notify.success('专注模式启动', `第 ${currentChain + 1} 次专注`);
     
@@ -2033,9 +2134,17 @@ const FocusProInner = () => {
     }
   }, [config, playSound, notify, currentChain, swReady, pwaPermission, startFocusNotification, activeMission]);
   
+  // ⭐ 核心修复：启动延迟时设置结束时间戳
   const handleLaunchDelay = useCallback(() => {
+    const now = Date.now();
+    const endTime = now + config.DELAY_PROTOCOL_TIME * 1000;
+    
     setIsDelayActive(true);
     setDelayTimeRemaining(config.DELAY_PROTOCOL_TIME);
+    
+    delayStartTimeRef.current = now;
+    delayEndTimeRef.current = endTime;
+    
     playSound('warning');
     notify.info('预约已启动', `${formatTimeVerbose(config.DELAY_PROTOCOL_TIME)}内必须开始专注`);
     
@@ -2046,21 +2155,31 @@ const FocusProInner = () => {
   
   const handleInterruptFocus = useCallback(() => {
     const elapsed = focusStartTimeRef.current ? Math.floor((Date.now() - focusStartTimeRef.current) / 1000) : 0;
+    
     setIsFocusMode(false);
     setIsBreakMode(false);
+    focusStartTimeRef.current = null;
+    focusEndTimeRef.current = null;
+    
     setCurrentViolation({ reason: '专注模式中断', type: 'focus_interrupt', duration: elapsed });
     setTribunalOpen(true);
     playSound('failure');
     notify.error('专注中断', '触发审判');
+    
     if (swReady) stopFocusNotification();
   }, [playSound, notify, swReady, stopFocusNotification]);
   
   const handleCompleteFocus = useCallback(() => {
     setIsFocusMode(false);
     setIsBreakMode(false);
+    focusStartTimeRef.current = null;
+    focusEndTimeRef.current = null;
+    
     const newChain = currentChain + 1;
     setCurrentChain(newChain);
     setTotalFocus(prev => prev + 1);
+    setTodayCompleted(prev => prev + 1);
+    
     if (newChain > longestChain) setLongestChain(newChain);
     
     if (activeMissionId) {
@@ -2068,24 +2187,30 @@ const FocusProInner = () => {
       if (mission) {
         setCompletedMissions(prev => [...prev, { ...mission, completedAt: new Date() }]);
         setMissions(prev => prev.filter(m => m.id !== activeMissionId));
-        setTodayCompleted(prev => prev + 1);
       }
       setActiveMissionId(null);
     }
     
     playSound('success');
     notify.success('任务完成！', `第 ${newChain} 次专注`);
+    
     if (swReady) completeFocusNotification(newChain);
   }, [currentChain, longestChain, activeMissionId, missions, playSound, notify, swReady, completeFocusNotification]);
   
   const handleToggleBreak = useCallback(() => {
+    const now = Date.now();
+    
     if (isBreakMode) {
       setIsBreakMode(false);
       setFocusTimeRemaining(config.FOCUS_TIME);
+      focusEndTimeRef.current = now + config.FOCUS_TIME * 1000;
+      
       if (swReady) updateState(config.FOCUS_TIME, false, activeMission?.text || '专注中...');
     } else {
       setIsBreakMode(true);
       setBreakTimeRemaining(config.BREAK_TIME);
+      focusEndTimeRef.current = now + config.BREAK_TIME * 1000;
+      
       if (swReady) updateState(config.BREAK_TIME, true, '休息时间');
     }
   }, [isBreakMode, config, swReady, updateState, activeMission]);
@@ -2108,17 +2233,69 @@ const FocusProInner = () => {
   }, [currentChain, playSound, notify]);
   
   const handleAddMission = useCallback((mission) => setMissions(prev => [...prev, mission]), []);
-  const handleStartMission = useCallback((id) => { setActiveMissionId(id); handleActivateFocus(); }, [handleActivateFocus]);
-  const handleCompleteMission = useCallback((id) => { const mission = missions.find(m => m.id === id); if (mission) { setCompletedMissions(prev => [...prev, { ...mission, completedAt: new Date() }]); setMissions(prev => prev.filter(m => m.id !== id)); setTodayCompleted(prev => prev + 1); if (id === activeMissionId) handleCompleteFocus(); } }, [missions, activeMissionId, handleCompleteFocus]);
-  const handleDeleteMission = useCallback((id) => { setMissions(prev => prev.filter(m => m.id !== id)); if (id === activeMissionId) setActiveMissionId(null); }, [activeMissionId]);
+  
+  const handleStartMission = useCallback((id) => { 
+    setActiveMissionId(id); 
+    handleActivateFocus(); 
+  }, [handleActivateFocus]);
+  
+  const handleCompleteMission = useCallback((id) => { 
+    const mission = missions.find(m => m.id === id); 
+    if (mission) { 
+      setCompletedMissions(prev => [...prev, { ...mission, completedAt: new Date() }]); 
+      setMissions(prev => prev.filter(m => m.id !== id)); 
+      setTodayCompleted(prev => prev + 1);
+      
+      if (id === activeMissionId) {
+        handleCompleteFocus();
+      }
+    } 
+  }, [missions, activeMissionId, handleCompleteFocus]);
+  
+  const handleDeleteMission = useCallback((id) => { 
+    setMissions(prev => prev.filter(m => m.id !== id)); 
+    if (id === activeMissionId) setActiveMissionId(null); 
+  }, [activeMissionId]);
+  
   const handleDeleteCompletedMission = useCallback((id) => setCompletedMissions(prev => prev.filter(m => m.id !== id)), []);
-  const handleUnlockNode = useCallback((id) => { setPolicyNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'unlocked' } : n)); setDailyUnlockUsed(true); playSound('unlock'); notify.success('节点已解锁', '明天可以继续解锁'); }, [playSound, notify]);
-  const handleActivateNode = useCallback((id) => { setPolicyNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'active' } : n)); playSound('success'); notify.success('习惯已激活', '开始执行！'); }, [playSound, notify]);
+  
+  const handleUnlockNode = useCallback((id) => { 
+    setPolicyNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'unlocked' } : n)); 
+    setDailyUnlockUsed(true); 
+    playSound('unlock'); 
+    notify.success('节点已解锁', '明天可以继续解锁'); 
+  }, [playSound, notify]);
+  
+  const handleActivateNode = useCallback((id) => { 
+    setPolicyNodes(prev => prev.map(n => n.id === id ? { ...n, status: 'active' } : n)); 
+    playSound('success'); 
+    notify.success('习惯已激活', '开始执行！'); 
+  }, [playSound, notify]);
   
   return (
     <div className="min-h-screen transition-colors duration-500" style={{ background: theme.bg.primary, fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif' }}>
-      <FocusModeOverlay active={isFocusMode} chainNumber={currentChain + 1} taskName={activeMission?.text} timeRemaining={isBreakMode ? breakTimeRemaining : focusTimeRemaining} totalTime={isBreakMode ? config.BREAK_TIME : config.FOCUS_TIME} isBreak={isBreakMode} onInterrupt={handleInterruptFocus} onComplete={handleCompleteFocus} onToggleBreak={handleToggleBreak} />
-      <TribunalModal isOpen={tribunalOpen} violation={currentViolation} currentChain={currentChain} exceptions={exceptions} purity={purity} onAdmitDefeat={handleAdmitDefeat} onModifyLaw={handleModifyLaw} onClose={() => setTribunalOpen(false)} />
+      <FocusModeOverlay 
+        active={isFocusMode} 
+        chainNumber={currentChain + 1} 
+        taskName={activeMission?.text} 
+        timeRemaining={isBreakMode ? breakTimeRemaining : focusTimeRemaining} 
+        totalTime={isBreakMode ? config.BREAK_TIME : config.FOCUS_TIME} 
+        isBreak={isBreakMode} 
+        onInterrupt={handleInterruptFocus} 
+        onComplete={handleCompleteFocus} 
+        onToggleBreak={handleToggleBreak} 
+      />
+      
+      <TribunalModal 
+        isOpen={tribunalOpen} 
+        violation={currentViolation} 
+        currentChain={currentChain} 
+        exceptions={exceptions} 
+        purity={purity} 
+        onAdmitDefeat={handleAdmitDefeat} 
+        onModifyLaw={handleModifyLaw} 
+        onClose={() => setTribunalOpen(false)} 
+      />
       
       <div className="max-w-6xl mx-auto px-5 py-8">
         {/* Header */}
@@ -2158,7 +2335,12 @@ const FocusProInner = () => {
             <SystemStatus time={time} runDays={runDays} todayCompleted={todayCompleted} streak={streak} />
             <PrecedentDatabase exceptions={exceptions} failures={failures} purity={purity} />
             <AchievementsPanel unlockedAchievements={achievements} />
-            <SettingsPanel audioEnabled={audioEnabled} onAudioToggle={() => setAudioEnabled(!audioEnabled)} notificationPermission={pwaPermission} onRequestNotification={requestPermission} />
+            <SettingsPanel 
+              audioEnabled={audioEnabled} 
+              onAudioToggle={() => setAudioEnabled(!audioEnabled)} 
+              notificationPermission={pwaPermission} 
+              onRequestNotification={requestPermission} 
+            />
           </div>
           
           {/* Main Content */}
@@ -2174,26 +2356,55 @@ const FocusProInner = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                <SacredSwitch onActivate={handleActivateFocus} disabled={isFocusMode || isDelayActive} currentChain={currentChain} exceptions={exceptions} focusTime={config.FOCUS_TIME} />
-                <DelayProtocol onLaunch={handleLaunchDelay} onActivate={handleActivateFocus} active={isDelayActive} timeRemaining={delayTimeRemaining} disabled={isFocusMode} delayTime={config.DELAY_PROTOCOL_TIME} />
+                <SacredSwitch 
+                  onActivate={handleActivateFocus} 
+                  disabled={isFocusMode || isDelayActive} 
+                  currentChain={currentChain} 
+                  exceptions={exceptions} 
+                  focusTime={config.FOCUS_TIME} 
+                />
+                <DelayProtocol 
+                  onLaunch={handleLaunchDelay} 
+                  onActivate={handleActivateFocus} 
+                  active={isDelayActive} 
+                  timeRemaining={delayTimeRemaining} 
+                  disabled={isFocusMode} 
+                  delayTime={config.DELAY_PROTOCOL_TIME} 
+                />
               </div>
             </AppleCard>
             
             <AppleCard>
               <AddMissionForm onAdd={handleAddMission} />
               <div className="mt-6">
-                <MissionQueue missions={missions} activeMissionId={activeMissionId} onStart={handleStartMission} onComplete={handleCompleteMission} onDelete={handleDeleteMission} />
-                <CompletedMissions missions={completedMissions} onDelete={handleDeleteCompletedMission} />
+                <MissionQueue 
+                  missions={missions} 
+                  activeMissionId={activeMissionId} 
+                  onStart={handleStartMission} 
+                  onComplete={handleCompleteMission} 
+                  onDelete={handleDeleteMission} 
+                />
+                <CompletedMissions 
+                  missions={completedMissions} 
+                  onDelete={handleDeleteCompletedMission} 
+                />
               </div>
             </AppleCard>
             
-            <PolicyTreePanel nodes={policyNodes} dailyUnlockUsed={dailyUnlockUsed} onUnlockNode={handleUnlockNode} onActivateNode={handleActivateNode} />
+            <PolicyTreePanel 
+              nodes={policyNodes} 
+              dailyUnlockUsed={dailyUnlockUsed} 
+              onUnlockNode={handleUnlockNode} 
+              onActivateNode={handleActivateNode} 
+            />
           </div>
         </div>
         
         {/* Footer */}
         <footer className="mt-10 pt-5 border-t text-center" style={{ borderColor: theme.border.secondary }}>
-          <p className="text-[12px]" style={{ color: theme.text.muted }}>Focus Pro · 连击 #{currentChain} · 纯净度 {purity}% · 第 {runDays} 天</p>
+          <p className="text-[12px]" style={{ color: theme.text.muted }}>
+            Focus Pro · 连击 #{currentChain} · 纯净度 {purity}% · 第 {runDays} 天
+          </p>
         </footer>
       </div>
       
